@@ -1,0 +1,3 @@
+int a = 25;
+float b = 10.5;
+x = a @ b;

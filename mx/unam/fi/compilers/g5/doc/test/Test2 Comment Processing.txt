@@ -1,0 +1,7 @@
+//Este comentario debe ignorarse
+
+printf("Hola mundo");
+
+/* Comentario
+	grande */
+
