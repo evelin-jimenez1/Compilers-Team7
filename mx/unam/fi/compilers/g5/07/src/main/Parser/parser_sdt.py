@@ -20,8 +20,9 @@ Grammar Compliance: LL(1) Top-Down
 Intermediate Representation: AST
 """
 
-from SymbolTable import SymbolTable
-from ASTNode import ASTNode
+from Ast.ASTNode import ASTNode
+from Semantic.SymbolTable import SymbolTable
+from Parser.grammar import Grammar
 
 class Parser:
     """

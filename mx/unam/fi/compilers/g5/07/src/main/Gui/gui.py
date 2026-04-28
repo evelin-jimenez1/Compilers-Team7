@@ -11,9 +11,9 @@ from pathlib import Path
 
 from PIL import Image, ImageTk
 
-from lexer import Lexer
-from parser_sdt import Parser 
-from ast_visualizer import render_ast
+from Lexer.lexer import Lexer
+from Parser.parser_sdt import Parser 
+from Ast.ast_visualizer import render_ast
 
 
 # ------------------------------------------------------------
