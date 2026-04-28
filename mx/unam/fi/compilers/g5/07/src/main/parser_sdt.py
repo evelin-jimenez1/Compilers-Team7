@@ -20,8 +20,8 @@ Grammar Compliance: LL(1) Top-Down
 Intermediate Representation: AST
 """
 
-from semantics.SymbolTable import SymbolTable
-from semantics.ASTNode import ASTNode
+from SymbolTable import SymbolTable
+from ASTNode import ASTNode
 
 class Parser:
     """
@@ -171,9 +171,16 @@ class Parser:
             if self.match("="):
                 expr = self.parse_expression()
                 self.consume(";", "Expected ';'")
+                
                 # SDT: Verify variable exists and mark initialized
                 sym = self.symbol_table.lookup(id_t["value"])
-                if sym: self.symbol_table.mark_as_initialized(id_t["value"])
+                if not sym:
+                    # Si no existe en la tabla, lanzamos el error semántico
+                    self.sdt_errors.append(f"[Line {id_t['line']}] SDT Error: Variable '{id_t['value']}' was not declared before assignment.")
+                else:
+                    # Si sí existe, la marcamos como inicializada
+                    self.symbol_table.mark_as_initialized(id_t["value"])
+                    
                 return ASTNode("ASSIGN", [expr], value=id_t["value"])
             
             if self.match("("):
@@ -184,9 +191,84 @@ class Parser:
 
         raise Exception(f"[Line {token['line']}] Syntax Error: Invalid statement start '{token['value']}'")
 
+    def parse_local_decl(self):
+            """ <STMT> ::= <TYPE> id <OPT_ASSIGN_LOCAL> ; """
+            self.log("<STMT> ::= <TYPE> id <OPT_ASSIGN_LOCAL> ;")
+            
+            # Consumimos el tipo de dato y el identificador
+            data_type = self.advance()["value"]
+            id_token = self.consume_type("Identifiers", "Expected variable name")
+            var_name = id_token["value"]
+            
+            # SDT: Declarar en la tabla de símbolos
+            self.symbol_table.declare(var_name, data_type, id_token["line"])
+            
+            children = []
+            if self.match("="):
+                expr = self.parse_expression()
+                children.append(expr)
+                # SDT: Marcar como inicializada
+                self.symbol_table.mark_as_initialized(var_name)
+                
+            self.consume(";", "Expected ';' after variable declaration")
+            
+            return ASTNode("LOCAL_VAR", children, value=f"{data_type} {var_name}", inferred_type=data_type)
+
+    def parse_if_stmt(self):
+        """ <IF_STMT> ::= if ( <E> ) { <STMT_LIST> } <ELSE_PART> """
+        self.log("<IF_STMT> ::= if ( <E> ) { <STMT_LIST> } <ELSE_PART>")
+        
+        self.consume("if", "Expected 'if'")
+        self.consume("(", "Expected '(' after 'if'")
+        condition = self.parse_expression()
+        self.consume(")", "Expected ')' after condition")
+        
+        # Parseamos el bloque THEN
+        self.consume("{", "Expected '{' to start 'if' block")
+        then_body = []
+        while self.peek()["value"] != "}" and not self.is_at_end():
+            then_body.append(self.parse_statement())
+        self.consume("}", "Expected '}' to close 'if' block")
+        
+        # Parseamos el bloque ELSE (Opcional)
+        else_body = []
+        if self.match("else"):
+            self.log("<ELSE_PART> ::= else { <STMT_LIST> }")
+            self.consume("{", "Expected '{' to start 'else' block")
+            while self.peek()["value"] != "}" and not self.is_at_end():
+                else_body.append(self.parse_statement())
+            self.consume("}", "Expected '}' to close 'else' block")
+        else:
+            self.log("<ELSE_PART> ::= epsilon")
+            
+        # Construcción del AST para control de flujo
+        then_node = ASTNode("THEN", then_body)
+        children = [condition, then_node]
+        if else_body:
+            children.append(ASTNode("ELSE", else_body))
+            
+        return ASTNode("IF", children)
+
+    def parse_global_variable(self, data_type, id_token):
+        """ <GLOBAL_REST> ::= <OPT_ASSIGN> ; """
+        self.log("<GLOBAL_REST> ::= <OPT_ASSIGN> ;")
+        
+        var_name = id_token["value"]
+        self.symbol_table.declare(var_name, data_type, id_token["line"])
+        
+        children = []
+        if self.match("="):
+            expr = self.parse_expression()
+            children.append(expr)
+            self.symbol_table.mark_as_initialized(var_name)
+            
+        self.consume(";", "Expected ';' after global variable declaration")
+        
+        return ASTNode("GLOBAL_VAR", children, value=f"{data_type} {var_name}", inferred_type=data_type)
     # ------------------------------------------------------------
     # Expression Hierarchy (LL1 Non-Recursive Loops)
     # ------------------------------------------------------------
+
 
     def parse_expression(self):
         return self.parse_logic_or()
@@ -287,9 +369,9 @@ class Parser:
     def log(self, rule):
         self.derivation.append(rule)
 
-    def get_full_report(self, ast):
+    def get_derivation(self, ast=None):
         """ Generates the final project report for the GUI. """
-        report = ["PARSING STATUS: Success!", "-"*30, "Derivation Steps:"]
+        report = ["Parsing Success!\n", "Derivation:"]
         report.extend(self.derivation)
         report.append("\n" + "-"*30)
         report.append("Abstract Syntax Tree (AST):")

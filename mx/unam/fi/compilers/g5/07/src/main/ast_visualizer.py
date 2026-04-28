@@ -25,7 +25,7 @@ class ASTVisualizer:
         return node_id
 
     def _format_label(self, node):
-        label = node.type
+        label = node.node_type
 
         if node.value is not None:
             label += f"\n{node.value}"
@@ -44,15 +44,15 @@ class ASTVisualizer:
         color = "white"
         style = "filled"
 
-        if node.type in ["CONST", "LITERAL"]:
+        if node.node_type in ["CONST", "LITERAL"]:
             color = "#90ee90"  # verde
-        elif node.type in ["ID"]:
+        elif node.node_type in ["ID"]:
             color = "#add8e6"  # azul claro
-        elif "VAR" in node.type:
+        elif "VAR" in node.node_type:
             color = "#ffd580"  # naranja
-        elif node.type in ["BIN_OP", "UNARY"]:
+        elif node.node_type in ["BIN_OP", "UNARY"]:
             color = "#ff9999"  # rojo claro
-        elif node.type == "FUNCTION":
+        elif node.node_type == "FUNCTION":
             color = "#d9b3ff"  # morado
 
         self.dot.node(node_id, label, style=style, fillcolor=color)
