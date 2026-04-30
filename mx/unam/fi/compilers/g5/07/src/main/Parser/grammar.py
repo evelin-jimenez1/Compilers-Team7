@@ -9,29 +9,63 @@ Authors:
     - Lara Hernández Emmanuel
     - Parra Fernández Héctor Emilio
 
-Date: April 28, 2026
+Date:
+    April 28, 2026
 
-Description:
-This module defines the context-free grammar (CFG) for the C language.
-The grammar is structured in Backus-Naur Form (BNF) and has been factorized
-to eliminate left recursion, making it compatible with LL(1) parsing.
+Program description:
+The Grammar class defines the formal structure of a subset of the C language. 
+It specifically implements a Context-Free Grammar (CFG) designed to be 
+compatible with LL(1) predictive parsing.
+
+Responsibilities:
+- Define the set of terminal symbols (tokens) recognized by the language.
+- Define the set of non-terminal symbols representing syntactic structures.
+- Specify the production rules in Backus-Naur Form (BNF).
+- Eliminate left recursion and apply left factoring to support top-down parsing.
+- Provide a graphical interface (GUI) to visualize the production rules.
+- Serve as the foundational data source for the Syntax-Directed Translation (SDT).
+
+Grammar Features:
+- Recursive descent compatible.
+- Handle global declarations (functions and variables).
+- Expression hierarchy: logic, equality, comparison, and arithmetic operations.
+- Control structures: support for 'if-else' blocks.
+- Function calls and assignment handling via 'STMT_ID_REST'.
 
 Usage:
-Run this script directly to visualize the grammar in a GUI window.
+The module can be imported to retrieve production rules or executed as a 
+standalone script to open a Tkinter window displaying the full grammar.
 """
 
 import tkinter as tk
 from tkinter import scrolledtext
 
-
-
 class Grammar:
+    """
+    The Grammar class stores and organizes the CFG for the C-Pure compiler.
+
+    Attributes
+    ----------
+    terminals : set
+        Tokens that form the leaves of the parse tree.
+    non_terminals : set
+        Syntactic categories that can be expanded into other symbols.
+    productions : dict
+        A mapping of non-terminals to lists of possible production sequences.
+    start_symbol : str
+        The entry point of the grammar (PROGRAM).
+    """
 
     def __init__(self):
+        """
+        Initialize the grammar components, defining the vocabulary and 
+        the hierarchical rules for the language.
+        """
+        
 
-        # -------------------------
         # TERMINALS
-        # -------------------------
+
+        # List of atomic symbols recognized by the Lexer.
         self.terminals = {
             'id', 'constant', 'literal',
             'int', 'float', 'double', 'char', 'void',
@@ -42,9 +76,10 @@ class Grammar:
             '&&', '||', '!'
         }
 
-        # -------------------------
+
         # NON-TERMINALS
-        # -------------------------
+
+        # Variables used to derive strings in the language.
         self.non_terminals = {
             'PROGRAM', 'GLOBAL', 'TYPE', 'GLOBAL_REST',
             'OPT_ASSIGN', 'OPT_E',
@@ -61,30 +96,26 @@ class Grammar:
 
         self.start_symbol = 'PROGRAM'
 
-        # -------------------------
         # PRODUCTIONS
-        # -------------------------
-        self.productions = {
 
-            # PROGRAM → GLOBAL PROGRAM | ε
+        # Dictionary representing the rules. 'epsilon' denotes an empty string derivation.
+        self.productions = {
+            # Entry point: A program is a sequence of global declarations.
             'PROGRAM': [['GLOBAL', 'PROGRAM'], ['epsilon']],
 
-            # GLOBAL → TYPE id GLOBAL_REST
             'GLOBAL': [['TYPE', 'id', 'GLOBAL_REST']],
 
-            # TYPE → int | float | double | char | void
             'TYPE': [['int'], ['float'], ['double'], ['char'], ['void']],
 
-            # GLOBAL_REST → function | variable
+            # Left factoring applied to distinguish between functions and variable declarations.
             'GLOBAL_REST': [
                 ['(', ')', '{', 'STMT_LIST', '}'],
                 ['OPT_ASSIGN', ';']
             ],
 
-            # OPT_ASSIGN → = E | ε
             'OPT_ASSIGN': [['=', 'E'], ['epsilon']],
 
-            # STATEMENTS
+            # Statements and flow control
             'STMT_LIST': [['STMT', 'STMT_LIST'], ['epsilon']],
 
             'STMT': [
@@ -94,23 +125,18 @@ class Grammar:
                 ['id', 'STMT_ID_REST']
             ],
 
-            # return optional expression
             'OPT_E': [['E'], ['epsilon']],
 
-            # assignment or function call
             'STMT_ID_REST': [
                 ['=', 'E', ';'],
                 ['(', ')', ';']
             ],
 
-            # IF
             'IF_STMT': [['if', '(', 'E', ')', '{', 'STMT_LIST', '}', 'ELSE_PART']],
 
             'ELSE_PART': [['else', '{', 'STMT_LIST', '}'], ['epsilon']],
 
-            # -------------------------
-            # EXPRESSIONS
-            # -------------------------
+            # Expression hierarchy (Factorized to eliminate left recursion)
             'E': [['LOGIC_OR']],
 
             'LOGIC_OR': [['LOGIC_AND', 'LOGIC_OR_PRIME']],
@@ -160,14 +186,27 @@ class Grammar:
             ]
         }
 
-    # -------------------------
-    # UTILS
-    # -------------------------
-
     def get_productions_for(self, non_terminal):
+        """
+        Retrieve the list of productions for a given non-terminal.
+
+        Parameters
+        ----------
+        non_terminal : str
+            The name of the non-terminal to look up.
+
+        Returns
+        -------
+        list
+            The production rules associated with the symbol.
+        """
         return self.productions.get(non_terminal, [])
 
     def display_in_window(self):
+        """
+        Launch a Tkinter-based GUI to display the grammar in a readable BNF format.
+        Useful for debugging and verification of rule factorization.
+        """
         root = tk.Tk()
         root.title("C-Pure Grammar (Final)")
         root.geometry("650x750")
@@ -184,6 +223,7 @@ class Grammar:
         )
         text_area.pack(padx=10, pady=10)
 
+        # Build the string representation of the grammar
         grammar_text = f"Start Symbol: {self.start_symbol}\n"
         grammar_text += "=" * 50 + "\n\n"
 
@@ -196,7 +236,7 @@ class Grammar:
 
         root.mainloop()
 
-
 if __name__ == "__main__":
+    # Execution entry point for visualization.
     g = Grammar()
     g.display_in_window()

@@ -1,25 +1,37 @@
 """
 FIRST and FOLLOW Set Generator
-------------------------------
+-----------------------------------
 Authors:
     Team 7:
     - Alvarez Salgado Eduardo Antonio
     - González Vázquez Alejandro
     - Jiménez Olivo Evelin
     - Lara Hernández Emmanuel
-    - Parra Hernández Héctor Emilio
+    - Parra Fernández Héctor Emilio
 
-Date: April 28, 2026
+Date:
+    April 28, 2026
 
-Description:
-This module implements the mathematical algorithms to compute FIRST and FOLLOW sets
-for a given context-free grammar. These sets are fundamental for constructing 
-the LL(1) parsing table and ensuring non-ambiguous syntax analysis.
+Program description:
+This module provides the computational logic to generate FIRST and FOLLOW sets 
+from a Grammar object. These sets are essential for validating if a grammar is 
+LL(1) and for the subsequent construction of the Predictive Parsing Table.
 
-Logic:
-- FIRST(A): The set of terminals that can begin strings derived from A.
-- FOLLOW(A): The set of terminals that can appear immediately to the right of A 
-             in some sentential form.
+Responsibilities:
+- Implement the iterative fixed-point algorithm for FIRST sets.
+- Implement the dependency-based propagation algorithm for FOLLOW sets.
+- Handle 'epsilon' (λ) transitions across production chains.
+- Provide a visualization tool to audit the mathematical results via GUI.
+- Support the Syntax-Directed Translation (SDT) by defining lookahead symbols.
+
+Mathematical Logic:
+- FIRST(α): The set of terminals that can appear at the beginning of strings derived from α.
+- FOLLOW(A): The set of terminals that can appear immediately to the right of non-terminal A.
+
+Usage:
+The module imports 'Grammar' to access the production rules. When executed, it 
+calculates both sets for the current C-Pure grammar and displays them in 
+formatted tables.
 """
 
 import tkinter as tk
@@ -29,13 +41,29 @@ from grammar import Grammar
 def compute_first(productions, non_terminals):
     """
     Computes FIRST sets using an iterative fixed-point algorithm.
-    It propagates terminals and epsilon through the production chains 
-    until no further changes occur.
+    
+    The algorithm continues to iterate through all productions, propagating 
+    terminals and the epsilon symbol until the sets stabilize (no more changes).
+
+    Parameters
+    ----------
+    productions : dict
+        Dictionary of production rules from the Grammar class.
+    non_terminals : set
+        Set of all non-terminal symbols in the grammar.
+
+    Returns
+    -------
+    dict
+        A mapping of each non-terminal to its calculated FIRST set.
     """
     first = {nt: set() for nt in non_terminals}
 
     def get_first_of_sequence(sequence):
-        """ Helper to compute FIRST for a sequence of symbols (rhs of a rule) """
+        """ 
+        Calculates the FIRST set for a specific string of symbols (RHS of a rule).
+        Handles the propagation of epsilon through a sequence of non-terminals.
+        """
         res = set()
         for symbol in sequence:
             if symbol == 'epsilon':
@@ -49,11 +77,11 @@ def compute_first(productions, non_terminals):
             symbol_first = first[symbol]
             res.update(symbol_first - {'epsilon'})
             
-            # If epsilon is not in the symbol's FIRST, we stop propagation
+            # If epsilon is not in the symbol's FIRST, the sequence's FIRST is complete
             if 'epsilon' not in symbol_first:
                 break
         else:
-            # If the entire loop finishes, it means the entire sequence can derive epsilon
+            # If the loop finishes, the entire sequence can derive epsilon
             res.add('epsilon')
         return res
 
@@ -70,11 +98,28 @@ def compute_first(productions, non_terminals):
 
 def compute_follow(productions, non_terminals, first_sets, start_symbol):
     """
-    Computes FOLLOW sets using the following rules:
-    1. Place $ in FOLLOW(StartSymbol).
-    2. If A -> αBβ, then everything in FIRST(β) except epsilon is in FOLLOW(B).
-    3. If A -> αB or A -> αBβ where FIRST(β) contains epsilon, 
-       then everything in FOLLOW(A) is in FOLLOW(B).
+    Computes FOLLOW sets based on FIRST sets and production positions.
+    
+    Applies the three fundamental rules of FOLLOW set construction:
+    1. Initializing the start symbol with the end-of-file marker ($).
+    2. Adding FIRST of the remainder of a production to the preceding non-terminal.
+    3. Propagating FOLLOW sets from the head of a production to trailing non-terminals.
+
+    Parameters
+    ----------
+    productions : dict
+        Grammar production rules.
+    non_terminals : set
+        Grammar non-terminals.
+    first_sets : dict
+        The pre-computed FIRST sets for all symbols.
+    start_symbol : str
+        The designated entry point of the grammar.
+
+    Returns
+    -------
+    dict
+        A mapping of each non-terminal to its calculated FOLLOW set.
     """
     follow = {nt: set() for nt in non_terminals}
     # Rule 1: End of string marker for the start symbol
@@ -89,7 +134,7 @@ def compute_follow(productions, non_terminals, first_sets, start_symbol):
                     if symbol in non_terminals:
                         before_len = len(follow[symbol])
                         
-                        # Look at the rest of the production after the non-terminal
+                        # Look at the sequence following the current non-terminal
                         rest = p[i+1:]
                         if rest:
                             # Rule 2: Add FIRST of the remaining sequence
@@ -107,11 +152,11 @@ def compute_follow(productions, non_terminals, first_sets, start_symbol):
                             
                             follow[symbol].update(first_of_rest - {'epsilon'})
                             
-                            # Rule 3: If rest can be empty, propagate FOLLOW(head)
+                            # Rule 3: If rest is nullable, FOLLOW(symbol) includes FOLLOW(head)
                             if 'epsilon' in first_of_rest:
                                 follow[symbol].update(follow[head])
                         else:
-                            # Rule 3: Nothing follows B, so FOLLOW(B) contains FOLLOW(head)
+                            # Rule 3: Nothing follows the symbol in this production
                             follow[symbol].update(follow[head])
                         
                         if len(follow[symbol]) > before_len:
@@ -120,8 +165,16 @@ def compute_follow(productions, non_terminals, first_sets, start_symbol):
 
 def display_table_window(title, data_dict, set_name):
     """
-    Renders a formatted table within a Tkinter Toplevel window 
-    to visualize the calculated sets.
+    Renders a formatted table within a Tkinter Toplevel window.
+
+    Parameters
+    ----------
+    title : str
+        Window title and header.
+    data_dict : dict
+        The set data to be displayed.
+    set_name : str
+        Label for the results column (e.g., 'FIRST(α)').
     """
     window = tk.Toplevel()
     window.title(title)
@@ -137,7 +190,7 @@ def display_table_window(title, data_dict, set_name):
                                           bg="white", fg="#333")
     text_area.pack(padx=20, pady=10)
 
-    # Table Formatting
+    # Column formatting for clear visual alignment
     output = f"{'NON-TERMINAL':<25} | {set_name}\n"
     output += "=" * 60 + "\n"
 
@@ -146,19 +199,19 @@ def display_table_window(title, data_dict, set_name):
         output += f"{nt:<25} | {{ {elements} }}\n\n"
 
     text_area.insert(tk.INSERT, output)
-    text_area.configure(state='disabled') # Prevent user editing
+    text_area.configure(state='disabled') 
 
 if __name__ == "__main__":
-    # Standard testing routine
+    # 1. Initialize Grammar
     g = Grammar()
     
-    # Mathematical computation
+    # 2. Perform Mathematical Computation
     first_results = compute_first(g.productions, g.non_terminals)
     follow_results = compute_follow(g.productions, g.non_terminals, first_results, g.start_symbol)
 
-    # UI Execution
+    # 3. GUI Visualization
     root = tk.Tk()
-    root.withdraw() # Main window is not needed, only the Toplevels
+    root.withdraw() # Hide the empty root window
 
     display_table_window("Calculated FIRST Sets", first_results, "FIRST(α)")
     display_table_window("Calculated FOLLOW Sets", follow_results, "FOLLOW(α)")
