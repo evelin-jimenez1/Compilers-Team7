@@ -264,10 +264,10 @@ int main() {
 
 ---
 
-### Syntax Error
+### Parsing Error
 
 ```
-Syntax Error...
+Parsing Error...
 ```
 
 Example:
