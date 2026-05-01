@@ -58,10 +58,8 @@ Output + Visualization
 
 ```
 Compilers-Team7/
-│
 ├── .gitignore
 ├── README.md
-│
 └── mx/
     └── unam/
         └── fi/
@@ -69,10 +67,8 @@ Compilers-Team7/
                 └── g5/
                     └── 07/
                         ├── README.md
-                        │
                         ├── doc/
                         │   ├── 07-Compilers-Lexer.pdf
-                        │   │
                         │   ├── automatas/
                         │   │   ├── Constants_Automata.png
                         │   │   ├── Identifiers_Automata.png
@@ -80,7 +76,6 @@ Compilers-Team7/
                         │   │   ├── Literals_Automata.png
                         │   │   ├── Operators_Automata.png
                         │   │   └── Punctuation_Automata.png
-                        │   │
                         │   ├── regular_expressions/
                         │   │   ├── Constants_regular.png
                         │   │   ├── Identifiers_regular.png
@@ -88,7 +83,6 @@ Compilers-Team7/
                         │   │   ├── Literals_regular.png
                         │   │   ├── Operator_regular.png
                         │   │   └── Punctuation_regular.png
-                        │   │
                         │   └── test/
                         │       ├── .gitkeep
                         │       ├── Test1 Token Recognition and Whitespace Handling.png
@@ -99,19 +93,23 @@ Compilers-Team7/
                         │       ├── Test3 Unknown Token Detection.txt
                         │       ├── Test4 Lexical Error.png
                         │       └── Test4 Lexical Error.txt
-                        │
                         └── src/
                             └── main/
-                                ├── ast_visualizer.py
-                                ├── gui.py
                                 ├── main.py
-                                │
-                                ├── lexer/
+                                ├── Ast/
+                                │   ├── ASTNode.py
+                                │   └── ast_visualizer.py
+                                ├── Gui/
+                                │   └── gui.py
+                                ├── Lexer/
                                 │   └── lexer.py
-                                │
-                                ├── parser/
+                                ├── Parser/
+                                │   ├── first_follow.py
+                                │   ├── grammar.py
+                                │   ├── LL1_table.py
                                 │   └── parser_sdt.py
-                                │
+                                ├── Semantic/
+                                │   └── SymbolTable.py
                                 └── resources/
                                     ├── keywords.txt
                                     └── tokens.txt
@@ -121,7 +119,7 @@ Compilers-Team7/
 
 ##  Module Description
 
-### lexer1.py
+### lexer.py
 Performs lexical analysis:
 
 - Tokenizes source code  
@@ -155,7 +153,7 @@ Includes checks for:
 
 ---
 
-### gui1.py
+### gui.py
 
 - Provides user interface  
 - Displays tokens, derivation, and AST  
@@ -266,10 +264,10 @@ int main() {
 
 ---
 
-### Syntax Error
+### Parsing Error
 
 ```
-Syntax Error...
+Parsing Error...
 ```
 
 Example:
