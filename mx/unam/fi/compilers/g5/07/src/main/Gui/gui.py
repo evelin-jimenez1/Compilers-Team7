@@ -179,7 +179,7 @@ def run_gui():
                     "Success",
                     "Parsing Success!\nSDT Verified!"
                 )
-
+            parser_derivation = parser.get_derivation(ast)
             # -------------------------
             # AST
             # -------------------------
