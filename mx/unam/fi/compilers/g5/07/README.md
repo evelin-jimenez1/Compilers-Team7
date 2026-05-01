@@ -281,7 +281,7 @@ int main( {
 ### Lexical Error
 
 ```
-Lexical analysis failed...
+Unknown Token...
 ```
 
 Example:
