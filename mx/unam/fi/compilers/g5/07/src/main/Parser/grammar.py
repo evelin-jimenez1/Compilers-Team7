@@ -70,6 +70,7 @@ class Grammar:
             'id', 'constant', 'literal',
             'int', 'float', 'double', 'char', 'void',
             'if', 'else', 'return',
+            'while', 'for', 'do',  # <-- NUEVOS TERMINALES AÑADIDOS-------------------
             '=', ';', '(', ')', '{', '}',
             '+', '-', '*', '/', '%',
             '==', '!=', '>', '>=', '<', '<=',
@@ -85,6 +86,8 @@ class Grammar:
             'OPT_ASSIGN', 'OPT_E',
             'STMT_LIST', 'STMT', 'STMT_ID_REST',
             'IF_STMT', 'ELSE_PART',
+            'WHILE_STMT', 'DO_WHILE_STMT', 'FOR_STMT',  # <-- NUEVOS NO-TERMINALES PARA BUCLES---------------
+            'FOR_INIT', 'FOR_STEP',                     # <-- AUXILIARES PARA EL BUCLE FOR-------------------
             'E', 'LOGIC_OR', 'LOGIC_OR_PRIME',
             'LOGIC_AND', 'LOGIC_AND_PRIME',
             'EQUALITY', 'EQUALITY_PRIME',
@@ -120,6 +123,9 @@ class Grammar:
 
             'STMT': [
                 ['IF_STMT'],
+                ['WHILE_STMT'],     # <-- AÑADIDO--------------------------------
+                ['DO_WHILE_STMT'],  # <-- AÑADIDO--------------------------------
+                ['FOR_STMT'],       # <-- AÑADIDO--------------------------------
                 ['return', 'OPT_E', ';'],
                 ['TYPE', 'id', 'OPT_ASSIGN', ';'],
                 ['id', 'STMT_ID_REST']
@@ -135,6 +141,33 @@ class Grammar:
             'IF_STMT': [['if', '(', 'E', ')', '{', 'STMT_LIST', '}', 'ELSE_PART']],
 
             'ELSE_PART': [['else', '{', 'STMT_LIST', '}'], ['epsilon']],
+
+            # ==================================================================================================
+            # NUEVAS REGLAS PARA BUCLES
+            # ==========================================
+            
+            # Regla directa. Inicia con terminal 'while'. Usa llaves obligatorias.
+            'WHILE_STMT': [['while', '(', 'E', ')', '{', 'STMT_LIST', '}']],
+
+            # Regla directa. Inicia con terminal 'do'. Termina con ';'.
+            'DO_WHILE_STMT': [['do', '{', 'STMT_LIST', '}', 'while', '(', 'E', ')', ';']],
+
+            # El for se divide para evitar choques de Punto y Coma (;)
+            'FOR_STMT': [['for', '(', 'FOR_INIT', ';', 'OPT_E', ';', 'FOR_STEP', ')', '{', 'STMT_LIST', '}']],
+
+            # La inicialización puede ser una declaración (int i = 0), una asignación (i = 0) o vacía.
+            'FOR_INIT': [
+                ['TYPE', 'id', 'OPT_ASSIGN'],
+                ['id', '=', 'E'],
+                ['epsilon']
+            ],
+
+            # El paso iterativo asume asignación estándar (i = i + 1) o vacío.
+            'FOR_STEP': [
+                ['id', '=', 'E'],
+                ['epsilon']
+            ],
+            # ==============================================================================================
 
             # Expression hierarchy (Factorized to eliminate left recursion)
             'E': [['LOGIC_OR']],
@@ -208,7 +241,7 @@ class Grammar:
         Useful for debugging and verification of rule factorization.
         """
         root = tk.Tk()
-        root.title("C-Pure Grammar (Final)")
+        root.title("C-Pure Grammar (With Loops)")
         root.geometry("650x750")
 
         label = tk.Label(root, text="Formal Grammar (BNF)",
