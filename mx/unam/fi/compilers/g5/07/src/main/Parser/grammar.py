@@ -1,4 +1,4 @@
-"""
+""""
 C Grammar Specification
 -----------------------------------
 Authors:
@@ -26,15 +26,11 @@ Responsibilities:
 - Serve as the foundational data source for the Syntax-Directed Translation (SDT).
 
 Grammar Features:
-- Recursive descent compatible.
-- Handle global declarations (functions and variables).
+- Recursive descent and LL(1) parsing table compatible.
+- Handle global declarations (functions and variables with parameter support).
 - Expression hierarchy: logic, equality, comparison, and arithmetic operations.
-- Control structures: support for 'if-else' blocks.
-- Function calls and assignment handling via 'STMT_ID_REST'.
-
-Usage:
-The module can be imported to retrieve production rules or executed as a 
-standalone script to open a Tkinter window displaying the full grammar.
+- Control structures: support for 'if-else' blocks (including flat else-if chains).
+- Iteration statements: while, do-while, and for loops with basic increment/decrement.
 """
 
 import tkinter as tk
@@ -42,150 +38,164 @@ from tkinter import scrolledtext
 
 class Grammar:
     """
-    The Grammar class stores and organizes the CFG for the C-Pure compiler.
-
-    Attributes
-    ----------
-    terminals : set
-        Tokens that form the leaves of the parse tree.
-    non_terminals : set
-        Syntactic categories that can be expanded into other symbols.
-    productions : dict
-        A mapping of non-terminals to lists of possible production sequences.
-    start_symbol : str
-        The entry point of the grammar (PROGRAM).
+    The Grammar class holds the CFG rules for C-Pure.
     """
-
     def __init__(self):
-        """
-        Initialize the grammar components, defining the vocabulary and 
-        the hierarchical rules for the language.
-        """
-        
-
-        # TERMINALS
-
-        # List of atomic symbols recognized by the Lexer.
+        # 1. Terminal Symbols Definition (Lexer Tokens)
         self.terminals = {
+            'int', 'float', 'double', 'char', 'void', 'if', 'else', 'while', 'do', 'for', 'return',
             'id', 'constant', 'literal',
-            'int', 'float', 'double', 'char', 'void',
-            'if', 'else', 'return',
-            'while', 'for', 'do',  # <-- NUEVOS TERMINALES AÑADIDOS-------------------
-            '=', ';', '(', ')', '{', '}',
-            '+', '-', '*', '/', '%',
-            '==', '!=', '>', '>=', '<', '<=',
-            '&&', '||', '!'
+            '(', ')', '{', '}', ';', ',', '=', '++', '--',
+            '||', '&&', '==', '!=', '>', '<', '>=', '<=', '+', '-', '*', '/', '%'
         }
 
-
-        # NON-TERMINALS
-
-        # Variables used to derive strings in the language.
+        # 2. Non-Terminal Symbols Definition (Syntactic Structures)
+        # 'ELSE_CHOICE' resolves the predictive cascade of flat else-if statements without conflicts.
         self.non_terminals = {
-            'PROGRAM', 'GLOBAL', 'TYPE', 'GLOBAL_REST',
-            'OPT_ASSIGN', 'OPT_E',
-            'STMT_LIST', 'STMT', 'STMT_ID_REST',
-            'IF_STMT', 'ELSE_PART',
-            'WHILE_STMT', 'DO_WHILE_STMT', 'FOR_STMT',  # <-- NUEVOS NO-TERMINALES PARA BUCLES---------------
-            'FOR_INIT', 'FOR_STEP',                     # <-- AUXILIARES PARA EL BUCLE FOR-------------------
-            'E', 'LOGIC_OR', 'LOGIC_OR_PRIME',
-            'LOGIC_AND', 'LOGIC_AND_PRIME',
-            'EQUALITY', 'EQUALITY_PRIME',
-            'COMPARISON', 'COMPARISON_PRIME',
-            'TERM', 'TERM_PRIME',
-            'FACTOR', 'FACTOR_PRIME',
-            'UNARY', 'PRIMARY'
+            'PROGRAM', 'GLOBAL', 'GLOBAL_REST', 'TYPE', 'PARAMS', 'PARAMS_REST',
+            'OPT_ASSIGN', 'STMT_LIST', 'STMT', 'OPT_E', 'STMT_ID_REST', 'ARGS', 'ARGS_REST',
+            'IF_STMT', 'ELSE_PART', 'ELSE_CHOICE', 'WHILE_STMT', 'DO_WHILE_STMT', 'FOR_STMT',
+            'FOR_INIT', 'FOR_UPD', 'FOR_UPD_REST', 'E', 'LOGIC_OR', 'LOGIC_OR_PRIME',
+            'LOGIC_AND', 'LOGIC_AND_PRIME', 'EQUALITY', 'EQUALITY_PRIME', 'COMPARISON',
+            'COMPARISON_PRIME', 'TERM', 'TERM_PRIME', 'FACTOR', 'FACTOR_PRIME', 'UNARY', 'PRIMARY'
         }
 
         self.start_symbol = 'PROGRAM'
 
-        # PRODUCTIONS
-
-        # Dictionary representing the rules. 'epsilon' denotes an empty string derivation.
+        # 3. Grammar Production Rules Dictionary (Backus-Naur Form)
         self.productions = {
-            # Entry point: A program is a sequence of global declarations.
-            'PROGRAM': [['GLOBAL', 'PROGRAM'], ['epsilon']],
-
-            'GLOBAL': [['TYPE', 'id', 'GLOBAL_REST']],
-
-            'TYPE': [['int'], ['float'], ['double'], ['char'], ['void']],
-
-            # Left factoring applied to distinguish between functions and variable declarations.
+            # --- Global Program Structure ---
+            'PROGRAM': [
+                ['GLOBAL', 'PROGRAM'],
+                ['epsilon']
+            ],
+            'GLOBAL': [
+                ['TYPE', 'id', 'GLOBAL_REST']
+            ],
+            'TYPE': [
+                ['int'], ['float'], ['double'], ['char'], ['void']
+            ],
             'GLOBAL_REST': [
-                ['(', ')', '{', 'STMT_LIST', '}'],
+                ['(', 'PARAMS', ')', '{', 'STMT_LIST', '}'],
                 ['OPT_ASSIGN', ';']
             ],
-
-            'OPT_ASSIGN': [['=', 'E'], ['epsilon']],
-
-            # Statements and flow control
-            'STMT_LIST': [['STMT', 'STMT_LIST'], ['epsilon']],
-
+            
+            # --- Function Parameters (Right Recursion for LL(1)) ---
+            'PARAMS': [
+                ['TYPE', 'id', 'PARAMS_REST'],
+                ['epsilon']
+            ],
+            'PARAMS_REST': [
+                [',', 'TYPE', 'id', 'PARAMS_REST'],
+                ['epsilon']
+            ],
+            'OPT_ASSIGN': [
+                ['=', 'E'],
+                ['epsilon']
+            ],
+            
+            # --- Statements and Blocks ---
+            'STMT_LIST': [
+                ['STMT', 'STMT_LIST'],
+                ['epsilon']
+            ],
             'STMT': [
                 ['IF_STMT'],
-                ['WHILE_STMT'],     # <-- AÑADIDO--------------------------------
-                ['DO_WHILE_STMT'],  # <-- AÑADIDO--------------------------------
-                ['FOR_STMT'],       # <-- AÑADIDO--------------------------------
+                ['WHILE_STMT'],
+                ['DO_WHILE_STMT'],
+                ['FOR_STMT'],
                 ['return', 'OPT_E', ';'],
                 ['TYPE', 'id', 'OPT_ASSIGN', ';'],
                 ['id', 'STMT_ID_REST']
             ],
-
-            'OPT_E': [['E'], ['epsilon']],
-
+            'OPT_E': [
+                ['E'],
+                ['epsilon']
+            ],
+            
+            # --- Identifier Resolution (Assignments, Calls, Postfix Operations) ---
             'STMT_ID_REST': [
                 ['=', 'E', ';'],
-                ['(', ')', ';']
+                ['(', 'ARGS', ')', ';'],
+                ['++', ';'],
+                ['--', ';']
             ],
-
-            'IF_STMT': [['if', '(', 'E', ')', '{', 'STMT_LIST', '}', 'ELSE_PART']],
-
-            'ELSE_PART': [['else', '{', 'STMT_LIST', '}'], ['epsilon']],
-
-            # ==================================================================================================
-            # NUEVAS REGLAS PARA BUCLES
-            # ==========================================
+            'ARGS': [
+                ['E', 'ARGS_REST'],
+                ['epsilon']
+            ],
+            'ARGS_REST': [
+                [',', 'E', 'ARGS_REST'],
+                ['epsilon']
+            ],
             
-            # Regla directa. Inicia con terminal 'while'. Usa llaves obligatorias.
-            'WHILE_STMT': [['while', '(', 'E', ')', '{', 'STMT_LIST', '}']],
+            # --- Control Flow Structures (With Flat Else-If Factorization) ---
+            'IF_STMT': [
+                ['if', '(', 'E', ')', '{', 'STMT_LIST', '}', 'ELSE_PART']
+            ],
+            'ELSE_PART': [
+                ['else', 'ELSE_CHOICE'],
+                ['epsilon']
+            ],
+            'ELSE_CHOICE': [
+                ['{', 'STMT_LIST', '}'],
+                ['IF_STMT'] # LL(1) Factorization trick: safe direct recursion to handle nested chains flats
+            ],
 
-            # Regla directa. Inicia con terminal 'do'. Termina con ';'.
-            'DO_WHILE_STMT': [['do', '{', 'STMT_LIST', '}', 'while', '(', 'E', ')', ';']],
-
-            # El for se divide para evitar choques de Punto y Coma (;)
-            'FOR_STMT': [['for', '(', 'FOR_INIT', ';', 'OPT_E', ';', 'FOR_STEP', ')', '{', 'STMT_LIST', '}']],
-
-            # La inicialización puede ser una declaración (int i = 0), una asignación (i = 0) o vacía.
+            # --- Iteration Loops Statements ---
+            'WHILE_STMT': [
+                ['while', '(', 'E', ')', '{', 'STMT_LIST', '}']
+            ],
+            'DO_WHILE_STMT': [
+                ['do', '{', 'STMT_LIST', '}', 'while', '(', 'E', ')', ';']
+            ],
+            'FOR_STMT': [
+                ['for', '(', 'FOR_INIT', 'E', ';', 'FOR_UPD', ')', '{', 'STMT_LIST', '}']
+            ],
             'FOR_INIT': [
-                ['TYPE', 'id', 'OPT_ASSIGN'],
-                ['id', '=', 'E'],
+                ['TYPE', 'id', '=', 'E', ';'],
+                ['id', '=', 'E', ';'],
+                [';']
+            ],
+            'FOR_UPD': [
+                ['id', 'FOR_UPD_REST'],
                 ['epsilon']
             ],
-
-            # El paso iterativo asume asignación estándar (i = i + 1) o vacío.
-            'FOR_STEP': [
-                ['id', '=', 'E'],
+            'FOR_UPD_REST': [
+                ['++'],
+                ['--'],
+                ['=', 'E']
+            ],
+            
+            # --- Expressions Operator Precedence Cascades ---
+            'E': [
+                ['LOGIC_OR']
+            ],
+            'LOGIC_OR': [
+                ['LOGIC_AND', 'LOGIC_OR_PRIME']
+            ],
+            'LOGIC_OR_PRIME': [
+                ['||', 'LOGIC_AND', 'LOGIC_OR_PRIME'],
                 ['epsilon']
             ],
-            # ==============================================================================================
-
-            # Expression hierarchy (Factorized to eliminate left recursion)
-            'E': [['LOGIC_OR']],
-
-            'LOGIC_OR': [['LOGIC_AND', 'LOGIC_OR_PRIME']],
-            'LOGIC_OR_PRIME': [['||', 'LOGIC_AND', 'LOGIC_OR_PRIME'], ['epsilon']],
-
-            'LOGIC_AND': [['EQUALITY', 'LOGIC_AND_PRIME']],
-            'LOGIC_AND_PRIME': [['&&', 'EQUALITY', 'LOGIC_AND_PRIME'], ['epsilon']],
-
-            'EQUALITY': [['COMPARISON', 'EQUALITY_PRIME']],
+            'LOGIC_AND': [
+                ['EQUALITY', 'LOGIC_AND_PRIME']
+            ],
+            'LOGIC_AND_PRIME': [
+                ['&&', 'EQUALITY', 'LOGIC_AND_PRIME'],
+                ['epsilon']
+            ],
+            'EQUALITY': [
+                ['COMPARISON', 'EQUALITY_PRIME']
+            ],
             'EQUALITY_PRIME': [
                 ['==', 'COMPARISON', 'EQUALITY_PRIME'],
                 ['!=', 'COMPARISON', 'EQUALITY_PRIME'],
                 ['epsilon']
             ],
-
-            'COMPARISON': [['TERM', 'COMPARISON_PRIME']],
+            'COMPARISON': [
+                ['TERM', 'COMPARISON_PRIME']
+            ],
             'COMPARISON_PRIME': [
                 ['>', 'TERM', 'COMPARISON_PRIME'],
                 ['<', 'TERM', 'COMPARISON_PRIME'],
@@ -193,24 +203,28 @@ class Grammar:
                 ['<=', 'TERM', 'COMPARISON_PRIME'],
                 ['epsilon']
             ],
-
-            'TERM': [['FACTOR', 'TERM_PRIME']],
+            'TERM': [
+                ['FACTOR', 'TERM_PRIME']
+            ],
             'TERM_PRIME': [
                 ['+', 'FACTOR', 'TERM_PRIME'],
                 ['-', 'FACTOR', 'TERM_PRIME'],
                 ['epsilon']
             ],
-
-            'FACTOR': [['UNARY', 'FACTOR_PRIME']],
+            'FACTOR': [
+                ['UNARY', 'FACTOR_PRIME']
+            ],
             'FACTOR_PRIME': [
                 ['*', 'UNARY', 'FACTOR_PRIME'],
                 ['/', 'UNARY', 'FACTOR_PRIME'],
                 ['%', 'UNARY', 'FACTOR_PRIME'],
                 ['epsilon']
             ],
-
-            'UNARY': [['!', 'UNARY'], ['-', 'UNARY'], ['PRIMARY']],
-
+            'UNARY': [
+                ['!', 'UNARY'],
+                ['-', 'UNARY'],
+                ['PRIMARY']
+            ],
             'PRIMARY': [
                 ['id'],
                 ['constant'],
@@ -219,32 +233,21 @@ class Grammar:
             ]
         }
 
-    def get_productions_for(self, non_terminal):
+    def get_productions_for(self, non_terminal: str):
         """
-        Retrieve the list of productions for a given non-terminal.
-
-        Parameters
-        ----------
-        non_terminal : str
-            The name of the non-terminal to look up.
-
-        Returns
-        -------
-        list
-            The production rules associated with the symbol.
+        Returns the list of production rules associated with a specific non-terminal symbol.
         """
         return self.productions.get(non_terminal, [])
 
     def display_in_window(self):
         """
-        Launch a Tkinter-based GUI to display the grammar in a readable BNF format.
-        Useful for debugging and verification of rule factorization.
+        Launches a Tkinter-based GUI window to visualize the formal grammar rules in BNF format.
         """
         root = tk.Tk()
-        root.title("C-Pure Grammar (With Loops)")
+        root.title("C-Pure Grammar Specification - Team 7")
         root.geometry("650x750")
 
-        label = tk.Label(root, text="Formal Grammar (BNF)",
+        label = tk.Label(root, text="Formal Context-Free Grammar (BNF)",
                          font=("Arial", 14, "bold"))
         label.pack(pady=10)
 
@@ -256,7 +259,6 @@ class Grammar:
         )
         text_area.pack(padx=10, pady=10)
 
-        # Build the string representation of the grammar
         grammar_text = f"Start Symbol: {self.start_symbol}\n"
         grammar_text += "=" * 50 + "\n\n"
 
@@ -269,7 +271,7 @@ class Grammar:
 
         root.mainloop()
 
-if __name__ == "__main__":
-    # Execution entry point for visualization.
+if __name__ == '__main__':
+    # Standalone execution for visual testing and structural validation
     g = Grammar()
     g.display_in_window()
