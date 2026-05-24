@@ -1,6 +1,6 @@
 """
 FIRST and FOLLOW Set Generator
------------------------------------
+
 Authors:
     Team 7:
     - Alvarez Salgado Eduardo Antonio
@@ -21,17 +21,12 @@ Responsibilities:
 - Implement the iterative fixed-point algorithm for FIRST sets.
 - Implement the dependency-based propagation algorithm for FOLLOW sets.
 - Handle 'epsilon' (λ) transitions across production chains.
-- Provide a visualization tool to audit the mathematical results via GUI.
+- Provide a visualization tool to audit the mathematical results via GUI tables.
 - Support the Syntax-Directed Translation (SDT) by defining lookahead symbols.
 
 Mathematical Logic:
 - FIRST(α): The set of terminals that can appear at the beginning of strings derived from α.
 - FOLLOW(A): The set of terminals that can appear immediately to the right of non-terminal A.
-
-Usage:
-The module imports 'Grammar' to access the production rules. When executed, it 
-calculates both sets for the current C-Pure grammar and displays them in 
-formatted tables.
 """
 
 import tkinter as tk
@@ -125,6 +120,22 @@ def compute_follow(productions, non_terminals, first_sets, start_symbol):
     # Rule 1: End of string marker for the start symbol
     follow[start_symbol].add('$')
 
+    # Helper function to get FIRST of a suffix chain during FOLLOW computation
+    def get_first_of_sequence(sequence):
+        res = set()
+        for symbol in sequence:
+            if symbol == 'epsilon':
+                continue
+            if symbol not in non_terminals:
+                res.add(symbol)
+                break
+            res.update(first_sets[symbol] - {'epsilon'})
+            if 'epsilon' not in first_sets[symbol]:
+                break
+        else:
+            res.add('epsilon')
+        return res
+
     changed = True
     while changed:
         changed = False
@@ -138,18 +149,7 @@ def compute_follow(productions, non_terminals, first_sets, start_symbol):
                         rest = p[i+1:]
                         if rest:
                             # Rule 2: Add FIRST of the remaining sequence
-                            first_of_rest = set()
-                            for s in rest:
-                                if s == 'epsilon': continue
-                                if s not in non_terminals:
-                                    first_of_rest.add(s)
-                                    break
-                                first_of_rest.update(first_sets[s] - {'epsilon'})
-                                if 'epsilon' not in first_sets[s]:
-                                    break
-                            else:
-                                first_of_rest.add('epsilon')
-                            
+                            first_of_rest = get_first_of_sequence(rest)
                             follow[symbol].update(first_of_rest - {'epsilon'})
                             
                             # Rule 3: If rest is nullable, FOLLOW(symbol) includes FOLLOW(head)
@@ -202,19 +202,23 @@ def display_table_window(title, data_dict, set_name):
     text_area.configure(state='disabled') 
 
 if __name__ == "__main__":
-    # 1. Initialize Grammar
+    # 1. Initialize Grammar Object
+    print("[System] Loading C-Pure Grammar Specification...")
     g = Grammar()
     
-    # 2. Perform Mathematical Computation
+    # 2. Perform Fixed-Point Mathematical Computation
+    print("[System] Computing LL(1) FIRST sets...")
     first_results = compute_first(g.productions, g.non_terminals)
+    
+    print("[System] Computing LL(1) FOLLOW sets...")
     follow_results = compute_follow(g.productions, g.non_terminals, first_results, g.start_symbol)
 
-    # 3. GUI Visualization
+    # 3. GUI Visualization Windows
     root = tk.Tk()
-    root.withdraw() # Hide the empty root window
+    root.withdraw() # Hide the empty root layout window
 
-    display_table_window("Calculated FIRST Sets", first_results, "FIRST(α)")
-    display_table_window("Calculated FOLLOW Sets", follow_results, "FOLLOW(α)")
+    display_table_window("Calculated FIRST Sets - Team 7", first_results, "FIRST(α)")
+    display_table_window("Calculated FOLLOW Sets - Team 7", follow_results, "FOLLOW(A)")
 
-    print("Status: Computation complete. GUI windows active.")
+    print("[System] Computation complete. Visualizing predictive sets GUI tables.")
     root.mainloop()
