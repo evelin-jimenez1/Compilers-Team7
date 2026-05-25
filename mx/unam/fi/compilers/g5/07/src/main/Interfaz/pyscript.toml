@@ -1,0 +1,10 @@
+[files]
+"main_web.py" = "./main_web.py"
+"../Lexer/lexer.py" = "./Lexer/lexer.py"
+"../Parser/grammar.py" = "./Parser/grammar.py"
+"../Parser/first_follow.py" = "./Parser/first_follow.py"
+"../Parser/Parsing_table.py" = "./Parser/Parsing_table.py"
+"../Parser/Parser.py" = "./Parser/Parser.py"
+"../Semantic/semantic_analyzer.py" = "./Semantic/semantic_analyzer.py"
+"../TAC/TAC.py" = "./TAC/TAC.py"
+"../TAC/Ensamblador.py" = "./TAC/Ensamblador.py"

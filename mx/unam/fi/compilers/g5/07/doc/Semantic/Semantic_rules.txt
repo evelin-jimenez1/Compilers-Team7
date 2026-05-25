@@ -1,0 +1,285 @@
+NOTATION:
+- FT: global function table
+- ST: symbol table of the current scope
+- lookup(x): searches x in the active scopes
+- lookupCurrent(x): searches x only in the current scope
+- insert(x,t): inserts identifier x with type t
+- insertParam(x,t): inserts function parameter x with type t in the function scope
+- insertFunc(f,t,params): inserts function f with return type t and parameter type list params
+- arity(f): number of parameters of function f
+- paramTypes(f): list of parameter types of function f
+- numeric(t): true if t ∈ {int, char}
+- compatible(t1,t2): type compatibility
+- currentFuncType: return type of the current function
+- insideLoop: true if the current node is being analyzed inside a while or for loop
+- type(X): semantic type of symbol or expression X
+- ok(X): indicates whether the derivation of X is semantically valid
+
+TYPE COMPATIBILITY:
+- compatible(int,int)   = true
+- compatible(int,char)  = true
+- compatible(char,int)  = true
+- compatible(char,char) = true
+- compatible(void,*)    = false
+- compatible(*,void)    = false
+- compatible(string,*)  = false except for printf
+
+LITERAL CONVENTIONS:
+- constant.type = int
+- literal(single quotes).type = char
+- literal(double quotes).type = string
+
+SEMANTIC RULES:
+
+1. Program -> Global Program
+   { ok(Program) = ok(Global) ∧ ok(Program1) }
+
+2. Program -> epsilon
+   { ok(Program) = true }
+
+3. Global -> Type id GlobalRest
+   { insert(id.lexeme, type(Type)); ok(Global) = ok(GlobalRest) }
+
+4. Type -> int
+   { type(Type) = int }
+
+5. Type -> float
+   { type(Type) = float }
+
+6. Type -> double
+   { type(Type) = double }
+
+7. Type -> char
+   { type(Type) = char }
+
+8. Type -> void
+   { type(Type) = void }
+
+9. GlobalRest -> ( Params ) { StmtList }
+   { insertFunc(id.lexeme, currentFuncType, paramTypes) }
+
+10. GlobalRest -> OptAssign ;
+    { ok(GlobalRest) = true }
+
+11. Params -> Type id ParamsRest
+    { insertParam(id.lexeme, type(Type)) }
+
+12. Params -> epsilon
+    { ok(Params) = true }
+
+13. ParamsRest -> , Type id ParamsRest
+    { insertParam(id.lexeme, type(Type)) }
+
+14. ParamsRest -> epsilon
+    { ok(ParamsRest) = true }
+
+15. OptAssign -> = Expr
+    { if ¬compatible(id.type, type(Expr)) => semantic error: incompatible init }
+
+16. OptAssign -> epsilon
+    { ok(OptAssign) = true }
+
+17. StmtList -> Stmt StmtList
+    { ok(StmtList) = ok(Stmt) ∧ ok(StmtList1) }
+
+18. StmtList -> epsilon
+    { ok(StmtList) = true }
+
+19. Stmt -> IfStmt
+    { ok(Stmt) = ok(IfStmt) }
+
+20. Stmt -> WhileStmt
+    { ok(Stmt) = ok(WhileStmt) }
+
+21. Stmt -> DoWhileStmt
+    { ok(Stmt) = ok(DoWhileStmt) }
+
+22. Stmt -> ForStmt
+    { ok(Stmt) = ok(ForStmt) }
+
+23. Stmt -> return OptExpr ;
+    { if ¬compatible(currentFuncType, type(OptExpr)) => semantic error: return mismatch }
+
+24. Stmt -> Type id OptAssign ;
+    { insert(id.lexeme, type(Type)); ok(Stmt) = ok(OptAssign) }
+
+25. Stmt -> id StmtIdRest
+    { if lookup(id.lexeme) = null => semantic error: not declared }
+
+26. OptExpr -> Expr
+    { type(OptExpr) = type(Expr) }
+
+27. OptExpr -> epsilon
+    { type(OptExpr) = void }
+
+28. StmtIdRest -> = Expr ;
+    { if ¬compatible(id.type, type(Expr)) => semantic error: incompatible assignment }
+
+29. StmtIdRest -> ( Args ) ;
+    { if arity(id.lexeme) ≠ ArgCount => semantic error: invalid number of args }
+
+30. StmtIdRest -> ++ ;
+    { if ¬numeric(type(id)) => semantic error: invalid type for ++ }
+
+31. StmtIdRest -> -- ;
+    { if ¬numeric(type(id)) => semantic error: invalid type for -- }
+
+32. Args -> Expr ArgsRest
+    { ArgCount = 1 + ArgCount(ArgsRest) }
+
+33. Args -> epsilon
+    { ArgCount = 0 }
+
+34. ArgsRest -> , Expr ArgsRest
+    { ok(ArgsRest) = ok(Expr) ∧ ok(ArgsRest1) }
+
+35. ArgsRest -> epsilon
+    { ok(ArgsRest) = true }
+
+36. IfStmt -> if ( Expr ) { StmtList } ElsePart
+    { if type(Expr) ≠ bool => semantic error: invalid condition }
+
+37. ElsePart -> else ElseChoice
+    { ok(ElsePart) = ok(ElseChoice) }
+
+38. ElsePart -> epsilon
+    { ok(ElsePart) = true }
+
+39. ElseChoice -> { StmtList }
+    { ok(ElseChoice) = ok(StmtList) }
+
+40. ElseChoice -> IfStmt
+    { ok(ElseChoice) = ok(IfStmt) }
+
+41. WhileStmt -> while ( Expr ) { StmtList }
+    { insideLoop = true; ok(WhileStmt) = ok(Expr) ∧ ok(StmtList) }
+
+42. DoWhileStmt -> do { StmtList } while ( Expr ) ;
+    { insideLoop = true; ok(DoWhileStmt) = ok(StmtList) ∧ ok(Expr) }
+
+43. ForStmt -> for ( ForInit Expr ; ForUpd ) { StmtList }
+    { insideLoop = true; ok(ForStmt) = ok(ForInit) ∧ ok(Expr) ∧ ok(ForUpd) ∧ ok(StmtList) }
+
+44. ForInit -> Type id = Expr ;
+    { insert(id.lexeme, type(Type)); ok(ForInit) = ok(Expr) }
+
+45. ForInit -> id = Expr ;
+    { if ¬compatible(id.type, type(Expr)) => semantic error: incompatible assignment }
+
+46. ForInit -> ;
+    { ok(ForInit) = true }
+
+47. ForUpd -> id ForUpdRest
+    { if lookup(id.lexeme) = null => semantic error: variable not declared }
+
+48. ForUpd -> epsilon
+    { ok(ForUpd) = true }
+
+49. ForUpdRest -> ++
+    { ok(ForUpdRest) = true }
+
+50. ForUpdRest -> --
+    { ok(ForUpdRest) = true }
+
+51. ForUpdRest -> = Expr
+    { if ¬compatible(id.type, type(Expr)) => semantic error: incompatible assignment }
+
+52. Expr -> LogicOr
+    { type(Expr) = type(LogicOr) }
+
+53. LogicOr -> LogicAnd LogicOrPrime
+    { type(LogicOr) = type(LogicAnd) }
+
+54. LogicOrPrime -> || LogicAnd LogicOrPrime
+    { type(LogicOrPrime) = bool }
+
+55. LogicOrPrime -> epsilon
+    { ok(LogicOrPrime) = true }
+
+56. LogicAnd -> Equality LogicAndPrime
+    { type(LogicAnd) = type(Equality) }
+
+57. LogicAndPrime -> && Equality LogicAndPrime
+    { type(LogicAndPrime) = bool }
+
+58. LogicAndPrime -> epsilon
+    { ok(LogicAndPrime) = true }
+
+59. Equality -> Comparison EqualityPrime
+    { type(Equality) = type(Comparison) }
+
+60. EqualityPrime -> == Comparison EqualityPrime
+    { type(EqualityPrime) = bool }
+
+61. EqualityPrime -> != Comparison EqualityPrime
+    { type(EqualityPrime) = bool }
+
+62. EqualityPrime -> epsilon
+    { ok(EqualityPrime) = true }
+
+63. Comparison -> Term ComparisonPrime
+    { type(Comparison) = type(Term) }
+
+64. ComparisonPrime -> > Term ComparisonPrime
+    { type(ComparisonPrime) = bool }
+
+65. ComparisonPrime -> < Term ComparisonPrime
+    { type(ComparisonPrime) = bool }
+
+66. ComparisonPrime -> >= Term ComparisonPrime
+    { type(ComparisonPrime) = bool }
+
+67. ComparisonPrime -> <= Term ComparisonPrime
+    { type(ComparisonPrime) = bool }
+
+68. ComparisonPrime -> epsilon
+    { ok(ComparisonPrime) = true }
+
+69. Term -> Factor TermPrime
+    { type(Term) = type(Factor) }
+
+70. TermPrime -> + Factor TermPrime
+    { if ¬numeric(type(Factor)) => semantic error: operand must be numeric }
+
+71. TermPrime -> - Factor TermPrime
+    { if ¬numeric(type(Factor)) => semantic error: operand must be numeric }
+
+72. TermPrime -> epsilon
+    { ok(TermPrime) = true }
+
+73. Factor -> Unary FactorPrime
+    { type(Factor) = type(Unary) }
+
+74. FactorPrime -> * Unary FactorPrime
+    { if ¬numeric(type(Unary)) => semantic error: operand must be numeric }
+
+75. FactorPrime -> / Unary FactorPrime
+    { if ¬numeric(type(Unary)) => semantic error: operand must be numeric }
+
+76. FactorPrime -> % Unary FactorPrime
+    { if ¬numeric(type(Unary)) => semantic error: operand must be numeric }
+
+77. FactorPrime -> epsilon
+    { ok(FactorPrime) = true }
+
+78. Unary -> ! Unary
+    { type(Unary) = bool }
+
+79. Unary -> - Unary
+    { if ¬numeric(type(Unary)) => semantic error: operand must be numeric }
+
+80. Unary -> Primary
+    { type(Unary) = type(Primary) }
+
+81. Primary -> id
+    { if lookup(id.lexeme) = null => semantic error: not declared }
+
+82. Primary -> constant
+    { type(Primary) = int }
+
+83. Primary -> literal
+    { type(Primary) = string }
+
+84. Primary -> ( Expr )
+    { type(Primary) = type(Expr) }
+========================================================================
