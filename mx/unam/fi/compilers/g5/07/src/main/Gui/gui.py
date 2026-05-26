@@ -25,6 +25,7 @@ Dependencies:
 
 import sys
 import os
+import json
 from pathlib import Path
 
 # ── Resolve project root so imports work from any CWD ─────────────────────────
@@ -131,6 +132,360 @@ MSG_EXEC_SEMANTIC_ERROR = (
     "Semantic errors prevented compilation from completing."
 )
 
+# ══════════════════════════════════════════════════════════════════════════════
+# ── Centralised Theme System ──────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Config file for persistence
+_THEME_CONFIG = GUI_DIR / ".theme_config.json"
+
+# ── Dark theme palette (professional IDE style) ────────────────────────────────
+DARK_THEME: dict[str, str] = {
+    # Backgrounds
+    "bg_primary":          "#0d1117",
+    "bg_secondary":        "#161b22",
+    "bg_tertiary":         "#111827",
+    "bg_card":             "#1a2332",
+    "bg_hover":            "#21262d",
+    # Header
+    "header_grad_start":   "#0d1117",
+    "header_grad_mid":     "#111827",
+    "header_border":       "#21262d",
+    # Borders
+    "border_primary":      "#21262d",
+    "border_secondary":    "#30363d",
+    "border_accent":       "#2d4a6e",
+    # Text
+    "text_primary":        "#e6edf3",
+    "text_secondary":      "#c9d1d9",
+    "text_muted":          "#8892a4",
+    "text_disabled":       "#4a5568",
+    "text_very_muted":     "#30363d",
+    # Accent
+    "accent_teal":         "#80cbc4",
+    "accent_blue":         "#89ddff",
+    "accent_green":        "#c3e88d",
+    # Buttons – Primary (teal/run)
+    "btn_primary_bg":      "#00897b",
+    "btn_primary_hover":   "#00acc1",
+    "btn_primary_pressed": "#007c6d",
+    "btn_primary_dis_bg":  "#1a3a36",
+    "btn_primary_dis_fg":  "#2d6a54",
+    # Buttons – Blue (compile)
+    "btn_blue_bg":         "#1a2b4a",
+    "btn_blue_fg":         "#89ddff",
+    "btn_blue_border":     "#2d5486",
+    "btn_blue_hover":      "#1e3a5f",
+    "btn_blue_hover_fg":   "#e6edf3",
+    "btn_blue_pressed":    "#0f2340",
+    "btn_blue_dis_fg":     "#30363d",
+    "btn_blue_dis_border": "#21262d",
+    # Buttons – Teal (save ast)
+    "btn_teal_bg":         "#1a3a36",
+    "btn_teal_fg":         "#80cbc4",
+    "btn_teal_border":     "#2d6a54",
+    "btn_teal_hover":      "#1e4a44",
+    "btn_teal_hover_fg":   "#e6edf3",
+    "btn_teal_pressed":    "#0f2d28",
+    # Buttons – Default
+    "btn_def_bg":          "#161b22",
+    "btn_def_fg":          "#c9d1d9",
+    "btn_def_border":      "#30363d",
+    "btn_def_hover":       "#21262d",
+    "btn_def_hover_fg":    "#e6edf3",
+    "btn_def_pressed":     "#30363d",
+    # Buttons – Danger
+    "btn_danger_bg":       "#1a2332",
+    "btn_danger_fg":       "#f07178",
+    "btn_danger_border":   "#f07178",
+    "btn_danger_hover":    "#2d1a1e",
+    "btn_danger_pressed":  "#1a0e10",
+    # Editor
+    "editor_bg":           "#0d1117",
+    "editor_fg":           "#e6edf3",
+    "editor_highlight":    "#1e3a5f",
+    "editor_selection":    "#264f78",
+    "line_num_bg":         "#161b22",
+    "line_num_fg":         "#4a5568",
+    # Tabs
+    "tab_bg":              "#161b22",
+    "tab_fg":              "#8892a4",
+    "tab_active_bg":       "#0d1117",
+    "tab_active_fg":       "#80cbc4",
+    "tab_active_border":   "#80cbc4",
+    "tab_hover_bg":        "#1c2230",
+    "tab_hover_fg":        "#c9d1d9",
+    # Tables
+    "table_bg":            "#0d1117",
+    "table_alt_bg":        "#111827",
+    "table_fg":            "#e6edf3",
+    "table_header_bg":     "#161b22",
+    "table_header_fg":     "#8892a4",
+    "table_border":        "#21262d",
+    "table_selected":      "#1e3a5f",
+    # Scrollbars
+    "scroll_bg":           "#161b22",
+    "scroll_handle":       "#30363d",
+    "scroll_handle_hover": "#4a5568",
+    # Status bar
+    "status_bg":           "#0d1117",
+    "status_border":       "#21262d",
+    "status_fg":           "#8892a4",
+    # Splitter
+    "splitter_handle":     "#21262d",
+    # Version tag
+    "tag_bg":              "#1e3a46",
+    "tag_fg":              "#80cbc4",
+    "tag_border":          "#2d6a54",
+    # Copy button
+    "copy_btn_fg":         "#4a5568",
+    "copy_btn_hover_fg":   "#e6edf3",
+    # Theme toggle button
+    "theme_btn_bg":        "#161b22",
+    "theme_btn_fg":        "#80cbc4",
+    "theme_btn_border":    "#2d6a54",
+    "theme_btn_hover":     "#1e4a44",
+    # Pipeline badge – idle
+    "badge_idle_bg":       "#161b22",
+    "badge_idle_fg":       "#4a5568",
+    "badge_idle_border":   "#21262d",
+    # Section label
+    "section_fg":          "#4a5568",
+    # Hint label
+    "hint_fg":             "#4a5568",
+    # Token dot label
+    "token_lbl_fg":        "#8892a4",
+    # Cursor/pos label
+    "cursor_lbl_fg":       "#4a5568",
+    # Source code header
+    "src_hdr_bg":          "#161b22",
+    "src_hdr_fg":          "#4a5568",
+    # MetricCard
+    "card_bg":             "#1a2332",
+    "card_border":         "#2d4a6e",
+    "card_title_fg":       "#8892a4",
+    # Breakdown table (summary tab)
+    "breakdown_bg":        "#111827",
+    "breakdown_alt_bg":    "#161b22",
+    # AST download btn
+    "ast_dl_bg":           "#1a3a36",
+    "ast_dl_fg":           "#80cbc4",
+    "ast_dl_border":       "#2d6a54",
+    "ast_dl_hover":        "#1e4a44",
+    "ast_dl_hover_fg":     "#e6edf3",
+    "ast_dl_dis_fg":       "#30363d",
+    "ast_dl_dis_border":   "#21262d",
+    "ast_dl_dis_bg":       "#111",
+    # qt_material theme
+    "qt_material":         "dark_teal.xml",
+}
+
+# ── Light theme palette (clean professional style) ─────────────────────────────
+LIGHT_THEME: dict[str, str] = {
+    # Backgrounds
+    "bg_primary":          "#f0f2f5",
+    "bg_secondary":        "#ffffff",
+    "bg_tertiary":         "#f6f8fa",
+    "bg_card":             "#ffffff",
+    "bg_hover":            "#eaeef2",
+    # Header
+    "header_grad_start":   "#ffffff",
+    "header_grad_mid":     "#f0f4f8",
+    "header_border":       "#d0d7de",
+    # Borders
+    "border_primary":      "#d0d7de",
+    "border_secondary":    "#c6cbd1",
+    "border_accent":       "#a8c7e8",
+    # Text
+    "text_primary":        "#1f2328",
+    "text_secondary":      "#444d56",
+    "text_muted":          "#57606a",
+    "text_disabled":       "#8c959f",
+    "text_very_muted":     "#c6cbd1",
+    # Accent
+    "accent_teal":         "#0f766e",
+    "accent_blue":         "#0969da",
+    "accent_green":        "#1a7f37",
+    # Buttons – Primary (teal/run)
+    "btn_primary_bg":      "#0f766e",
+    "btn_primary_hover":   "#0d9488",
+    "btn_primary_pressed": "#0a5f59",
+    "btn_primary_dis_bg":  "#d1fae5",
+    "btn_primary_dis_fg":  "#6ee7b7",
+    # Buttons – Blue (compile)
+    "btn_blue_bg":         "#ddf4ff",
+    "btn_blue_fg":         "#0969da",
+    "btn_blue_border":     "#54aeff",
+    "btn_blue_hover":      "#b6d4fb",
+    "btn_blue_hover_fg":   "#1f2328",
+    "btn_blue_pressed":    "#9dc3f7",
+    "btn_blue_dis_fg":     "#8c959f",
+    "btn_blue_dis_border": "#d0d7de",
+    # Buttons – Teal (save ast)
+    "btn_teal_bg":         "#e6f6f5",
+    "btn_teal_fg":         "#0f766e",
+    "btn_teal_border":     "#81c8be",
+    "btn_teal_hover":      "#ccedeb",
+    "btn_teal_hover_fg":   "#1f2328",
+    "btn_teal_pressed":    "#b2e0db",
+    # Buttons – Default
+    "btn_def_bg":          "#f6f8fa",
+    "btn_def_fg":          "#444d56",
+    "btn_def_border":      "#d0d7de",
+    "btn_def_hover":       "#eaeef2",
+    "btn_def_hover_fg":    "#1f2328",
+    "btn_def_pressed":     "#dde1e6",
+    # Buttons – Danger
+    "btn_danger_bg":       "#fff8f8",
+    "btn_danger_fg":       "#cf222e",
+    "btn_danger_border":   "#cf222e",
+    "btn_danger_hover":    "#ffebe9",
+    "btn_danger_pressed":  "#ffd7d5",
+    # Editor
+    "editor_bg":           "#ffffff",
+    "editor_fg":           "#1f2328",
+    "editor_highlight":    "#e8f3fb",
+    "editor_selection":    "#b6d3f5",
+    "line_num_bg":         "#f6f8fa",
+    "line_num_fg":         "#8c959f",
+    # Tabs
+    "tab_bg":              "#f6f8fa",
+    "tab_fg":              "#57606a",
+    "tab_active_bg":       "#ffffff",
+    "tab_active_fg":       "#0969da",
+    "tab_active_border":   "#0969da",
+    "tab_hover_bg":        "#eaeef2",
+    "tab_hover_fg":        "#1f2328",
+    # Tables
+    "table_bg":            "#ffffff",
+    "table_alt_bg":        "#f6f8fa",
+    "table_fg":            "#1f2328",
+    "table_header_bg":     "#f0f2f5",
+    "table_header_fg":     "#57606a",
+    "table_border":        "#d0d7de",
+    "table_selected":      "#dbeafe",
+    # Scrollbars
+    "scroll_bg":           "#f6f8fa",
+    "scroll_handle":       "#c6cbd1",
+    "scroll_handle_hover": "#8c959f",
+    # Status bar
+    "status_bg":           "#f6f8fa",
+    "status_border":       "#d0d7de",
+    "status_fg":           "#57606a",
+    # Splitter
+    "splitter_handle":     "#d0d7de",
+    # Version tag
+    "tag_bg":              "#e6f6f5",
+    "tag_fg":              "#0f766e",
+    "tag_border":          "#81c8be",
+    # Copy button
+    "copy_btn_fg":         "#8c959f",
+    "copy_btn_hover_fg":   "#1f2328",
+    # Theme toggle button
+    "theme_btn_bg":        "#f6f8fa",
+    "theme_btn_fg":        "#0969da",
+    "theme_btn_border":    "#54aeff",
+    "theme_btn_hover":     "#ddf4ff",
+    # Pipeline badge – idle
+    "badge_idle_bg":       "#f6f8fa",
+    "badge_idle_fg":       "#8c959f",
+    "badge_idle_border":   "#d0d7de",
+    # Section label
+    "section_fg":          "#8c959f",
+    # Hint label
+    "hint_fg":             "#8c959f",
+    # Token dot label
+    "token_lbl_fg":        "#57606a",
+    # Cursor/pos label
+    "cursor_lbl_fg":       "#8c959f",
+    # Source code header
+    "src_hdr_bg":          "#f6f8fa",
+    "src_hdr_fg":          "#8c959f",
+    # MetricCard
+    "card_bg":             "#ffffff",
+    "card_border":         "#d0d7de",
+    "card_title_fg":       "#57606a",
+    # Breakdown table (summary tab)
+    "breakdown_bg":        "#f6f8fa",
+    "breakdown_alt_bg":    "#ffffff",
+    # AST download btn
+    "ast_dl_bg":           "#e6f6f5",
+    "ast_dl_fg":           "#0f766e",
+    "ast_dl_border":       "#81c8be",
+    "ast_dl_hover":        "#ccedeb",
+    "ast_dl_hover_fg":     "#1f2328",
+    "ast_dl_dis_fg":       "#8c959f",
+    "ast_dl_dis_border":   "#d0d7de",
+    "ast_dl_dis_bg":       "#f6f8fa",
+    # qt_material theme
+    "qt_material":         "light_teal.xml",
+}
+
+
+class ThemeManager:
+    """
+    Singleton that holds the active theme dict and persists the preference.
+    Access the current palette via ThemeManager.instance().t
+    """
+    _instance: "ThemeManager | None" = None
+
+    def __init__(self):
+        self._name: str = "dark"
+        self._palette: dict[str, str] = DARK_THEME
+        self._load()
+
+    # ── singleton access ──────────────────────────────────────────────────────
+    @classmethod
+    def instance(cls) -> "ThemeManager":
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    # ── properties ────────────────────────────────────────────────────────────
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def t(self) -> dict[str, str]:
+        """Return the active colour palette dict."""
+        return self._palette
+
+    def is_dark(self) -> bool:
+        return self._name == "dark"
+
+    # ── mutation ──────────────────────────────────────────────────────────────
+    def set_theme(self, name: str):
+        """Switch to 'dark' or 'light' and persist."""
+        if name not in ("dark", "light"):
+            return
+        self._name    = name
+        self._palette = DARK_THEME if name == "dark" else LIGHT_THEME
+        self._save()
+
+    def toggle(self):
+        self.set_theme("light" if self._name == "dark" else "dark")
+
+    # ── persistence ───────────────────────────────────────────────────────────
+    def _save(self):
+        try:
+            _THEME_CONFIG.write_text(
+                json.dumps({"theme": self._name}), encoding="utf-8"
+            )
+        except Exception:
+            pass
+
+    def _load(self):
+        try:
+            if _THEME_CONFIG.exists():
+                data = json.loads(_THEME_CONFIG.read_text(encoding="utf-8"))
+                name = data.get("theme", "dark")
+                if name in ("dark", "light"):
+                    self._name    = name
+                    self._palette = DARK_THEME if name == "dark" else LIGHT_THEME
+        except Exception:
+            pass
+
 
 # ── Line-number gutter ─────────────────────────────────────────────────────────
 class LineNumberArea(QWidget):
@@ -151,6 +506,7 @@ class CodeEditor(QPlainTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._line_number_area = LineNumberArea(self)
+        self._tm = ThemeManager.instance()
 
         self.blockCountChanged.connect(self._update_line_number_area_width)
         self.updateRequest.connect(self._update_line_number_area)
@@ -200,7 +556,7 @@ class CodeEditor(QPlainTextEdit):
         extra = []
         if not self.isReadOnly():
             sel = QTextEdit.ExtraSelection()
-            sel.format.setBackground(QColor("#1e3a5f"))
+            sel.format.setBackground(QColor(self._tm.t["editor_highlight"]))
             sel.format.setProperty(QTextCharFormat.FullWidthSelection, True)
             sel.cursor = self.textCursor()
             sel.cursor.clearSelection()
@@ -209,7 +565,7 @@ class CodeEditor(QPlainTextEdit):
 
     def line_number_area_paint_event(self, event):
         painter = QPainter(self._line_number_area)
-        painter.fillRect(event.rect(), QColor("#161b22"))
+        painter.fillRect(event.rect(), QColor(self._tm.t["line_num_bg"]))
 
         block     = self.firstVisibleBlock()
         block_num = block.blockNumber()
@@ -221,7 +577,7 @@ class CodeEditor(QPlainTextEdit):
 
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
-                painter.setPen(QColor("#4a5568"))
+                painter.setPen(QColor(self._tm.t["line_num_fg"]))
                 painter.drawText(
                     0, top,
                     self._line_number_area.width() - 6,
@@ -233,6 +589,16 @@ class CodeEditor(QPlainTextEdit):
             top       = bottom
             bottom    = top + round(self.blockBoundingRect(block).height())
             block_num += 1
+
+    def update_theme(self):
+        """Re-apply theme colours to this editor widget."""
+        t = self._tm.t
+        self.setStyleSheet(
+            f"QPlainTextEdit{{background:{t['editor_bg']};color:{t['editor_fg']};"
+            f"border:none;selection-background-color:{t['editor_selection']};}}"
+        )
+        self._highlight_current_line()
+        self._line_number_area.update()
 
 
 # ── x86 Assembly syntax highlighter ───────────────────────────────────────────
@@ -272,15 +638,10 @@ class AsmHighlighter(QSyntaxHighlighter):
 class MetricCard(QFrame):
     def __init__(self, label: str, value: str = "—", color: str = "#80cbc4", parent=None):
         super().__init__(parent)
+        self._tm    = ThemeManager.instance()
+        self._color = color
         self.setFrameShape(QFrame.StyledPanel)
         self.setObjectName("MetricCard")
-        self.setStyleSheet("""
-            #MetricCard {
-                background: #1a2332;
-                border: 1px solid #2d4a6e;
-                border-radius: 10px;
-            }
-        """)
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setMinimumHeight(90)
 
@@ -288,33 +649,48 @@ class MetricCard(QFrame):
         layout.setContentsMargins(16, 12, 16, 12)
 
         self._value_label = QLabel(value)
-        self._value_label.setStyleSheet(
-            f"color: {color}; font-size: 28px; font-weight: 700; font-family: 'Consolas';"
-        )
         self._value_label.setAlignment(Qt.AlignCenter)
 
         self._title_label = QLabel(label)
-        self._title_label.setStyleSheet(
-            "color: #8892a4; font-size: 11px; font-weight: 600; letter-spacing: 1px;"
-        )
         self._title_label.setAlignment(Qt.AlignCenter)
 
         layout.addWidget(self._value_label)
         layout.addWidget(self._title_label)
+        self._apply_styles()
+
+    def _apply_styles(self):
+        t = self._tm.t
+        self.setStyleSheet(
+            f"#MetricCard {{ background: {t['card_bg']}; "
+            f"border: 1px solid {t['card_border']}; border-radius: 10px; }}"
+        )
+        self._value_label.setStyleSheet(
+            f"color: {self._color}; font-size: 28px; font-weight: 700;"
+            f" font-family: 'Consolas';"
+        )
+        self._title_label.setStyleSheet(
+            f"color: {t['card_title_fg']}; font-size: 11px; font-weight: 600;"
+            f" letter-spacing: 1px;"
+        )
 
     def set_value(self, value: str):
         self._value_label.setText(value)
 
     def set_color(self, color: str):
+        self._color = color
         self._value_label.setStyleSheet(
             f"color: {color}; font-size: 28px; font-weight: 700; font-family: 'Consolas';"
         )
+
+    def update_theme(self):
+        self._apply_styles()
 
 
 # ── Stage badge widget (pipeline progress bar) ────────────────────────────────
 class PipelineBadge(QLabel):
     def __init__(self, code: str, label: str, color: str, parent=None):
         super().__init__(parent)
+        self._tm    = ThemeManager.instance()
         self._code  = code
         self._color = color
         self._label = label
@@ -324,14 +700,17 @@ class PipelineBadge(QLabel):
     def set_state(self, state: str):
         """idle | running | ok | error"""
         self._state = state
+        t = self._tm.t
         if state == "running":
             bg, fg, border = "#1e3a5f", "#89ddff", "#2d5486"
         elif state == "ok":
             bg, fg, border = "#1a3a2a", "#c3e88d", "#2d6a54"
         elif state == "error":
             bg, fg, border = "#3a1a1a", "#f07178", "#6a2d2d"
-        else:  # idle
-            bg, fg, border = "#161b22", "#4a5568", "#21262d"
+        else:  # idle — uses theme colours
+            bg     = t["badge_idle_bg"]
+            fg     = t["badge_idle_fg"]
+            border = t["badge_idle_border"]
 
         self.setStyleSheet(
             f"QLabel {{ background: {bg}; color: {fg}; "
@@ -344,6 +723,11 @@ class PipelineBadge(QLabel):
 
     def get_state(self) -> str:
         return self._state
+
+    def update_theme(self):
+        """Re-apply idle badge colours when theme changes."""
+        if self._state == "idle":
+            self.set_state("idle")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -541,7 +925,7 @@ class CompilerWorker(QThread):
             self.stage_done.emit("AST", ("ok", ast, img_path))
 
             # ── TAC ───────────────────────────────────────────────────────────
-            from Tac.TAC import TACGenerator
+            from TAC.TAC import TACGenerator
             tac_gen   = TACGenerator()
             tac_instr = tac_gen.generate(ast)
             self.stage_done.emit("TAC", ("ok", tac_instr))
@@ -611,6 +995,7 @@ class LexicalAnalyzerWindow(QMainWindow):
         self.setMinimumSize(1380, 820)
         self.resize(1600, 960)
 
+        self._tm: ThemeManager         = ThemeManager.instance()
         self._tokens:          list[dict]       = []
         self._worker:          LexerWorker    | None = None
         self._compiler_worker: CompilerWorker  | None = None
@@ -637,10 +1022,12 @@ class LexicalAnalyzerWindow(QMainWindow):
         body.addWidget(self._build_center(), stretch=1)
         root.addLayout(body, stretch=1)
 
+        t = self._tm.t
         self._status_bar = QStatusBar()
         self._status_bar.setStyleSheet(
-            "QStatusBar { background: #0d1117; border-top: 1px solid #21262d; "
-            "color: #8892a4; font-size: 12px; padding: 2px 12px; }"
+            f"QStatusBar {{ background: {t['status_bg']}; "
+            f"border-top: 1px solid {t['status_border']}; "
+            f"color: {t['status_fg']}; font-size: 12px; padding: 2px 12px; }}"
         )
         self.setStatusBar(self._status_bar)
 
@@ -650,30 +1037,35 @@ class LexicalAnalyzerWindow(QMainWindow):
         self._line_count_label  = QLabel("Lines: 0")
         for lbl in (self._status_label, self._token_count_label,
                     self._error_count_label, self._line_count_label):
-            lbl.setStyleSheet("color: #8892a4; padding: 0 12px;")
+            lbl.setStyleSheet(f"color: {t['status_fg']}; padding: 0 12px;")
             self._status_bar.addPermanentWidget(lbl)
 
     # ── Header ─────────────────────────────────────────────────────────────────
     def _build_header(self) -> QWidget:
-        header = QWidget()
-        header.setFixedHeight(58)
-        header.setStyleSheet(
-            "background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-            "stop:0 #0d1117, stop:0.5 #111827, stop:1 #0d1117);"
-            "border-bottom: 1px solid #21262d;"
+        t = self._tm.t
+        self._header = QWidget()
+        self._header.setFixedHeight(58)
+        self._header.setStyleSheet(
+            f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {t['header_grad_start']}, stop:0.5 {t['header_grad_mid']},"
+            f" stop:1 {t['header_grad_start']});"
+            f"border-bottom: 1px solid {t['header_border']};"
         )
-        layout = QHBoxLayout(header)
+        layout = QHBoxLayout(self._header)
         layout.setContentsMargins(24, 0, 24, 0)
 
-        for text, style in [
-            ("⟨/⟩", "color:#80cbc4;font-size:22px;font-weight:700;margin-right:10px;"),
-            ("C-Pure Compiler IDE", "color:#e6edf3;font-size:20px;font-weight:700;letter-spacing:0.5px;"),
-            ("·", "color:#4a5568;font-size:20px;margin:0 8px;"),
-            ("Full Pipeline  ·  Team 7", "color:#6b7280;font-size:13px;"),
-        ]:
+        self._header_labels = []
+        label_specs = [
+            ("⟨/⟩",                  f"color:{t['accent_teal']};font-size:22px;font-weight:700;margin-right:10px;"),
+            ("C-Pure Compiler IDE",   f"color:{t['text_primary']};font-size:20px;font-weight:700;letter-spacing:0.5px;"),
+            ("·",                     f"color:{t['text_disabled']};font-size:20px;margin:0 8px;"),
+            ("Full Pipeline  ·  Team 7", f"color:{t['text_muted']};font-size:13px;"),
+        ]
+        for text, style in label_specs:
             lbl = QLabel(text)
             lbl.setStyleSheet(style)
             layout.addWidget(lbl)
+            self._header_labels.append((lbl, style))
 
         layout.addStretch()
 
@@ -687,84 +1079,67 @@ class LexicalAnalyzerWindow(QMainWindow):
         layout.addLayout(badge_row)
 
         layout.addSpacing(16)
-        tag = QLabel("v2.1")
-        tag.setStyleSheet(
-            "color: #80cbc4; background: #1e3a46; border: 1px solid #2d6a54;"
-            "border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight: 600;"
+
+        # ── Theme toggle button ────────────────────────────────────────────────
+        self._theme_btn = QPushButton()
+        self._theme_btn.setCursor(Qt.PointingHandCursor)
+        self._theme_btn.setFixedSize(90, 30)
+        self._theme_btn.clicked.connect(self._on_toggle_theme)
+        self._update_theme_button()
+        layout.addWidget(self._theme_btn)
+
+        layout.addSpacing(8)
+
+        self._version_tag = QLabel("v2.1")
+        self._version_tag.setStyleSheet(
+            f"color: {t['tag_fg']}; background: {t['tag_bg']};"
+            f" border: 1px solid {t['tag_border']};"
+            f"border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight: 600;"
         )
-        layout.addWidget(tag)
-        return header
+        layout.addWidget(self._version_tag)
+        return self._header
+
+    def _update_theme_button(self):
+        t = self._tm.t
+        if self._tm.is_dark():
+            icon_text = "☀  Light"
+        else:
+            icon_text = "🌙  Dark"
+        self._theme_btn.setText(icon_text)
+        self._theme_btn.setStyleSheet(
+            f"QPushButton{{background:{t['theme_btn_bg']};color:{t['theme_btn_fg']};"
+            f"border:1px solid {t['theme_btn_border']};border-radius:8px;"
+            f"font-size:11px;font-weight:600;padding:4px 10px;}}"
+            f"QPushButton:hover{{background:{t['theme_btn_hover']};}}"
+        )
 
     # ── Sidebar ────────────────────────────────────────────────────────────────
     def _build_sidebar(self) -> QWidget:
-        sidebar = QWidget()
-        sidebar.setFixedWidth(200)
-        sidebar.setStyleSheet("background: #0d1117; border-right: 1px solid #21262d;")
-        layout = QVBoxLayout(sidebar)
-        layout.setContentsMargins(12, 20, 12, 20)
-        layout.setSpacing(8)
+        t = self._tm.t
+        self._sidebar = QWidget()
+        self._sidebar.setFixedWidth(200)
+        self._sidebar.setStyleSheet(
+            f"background: {t['bg_secondary']};"
+            f" border-right: 1px solid {t['border_primary']};"
+        )
+        self._sidebar_layout = QVBoxLayout(self._sidebar)
+        self._sidebar_layout.setContentsMargins(12, 20, 12, 20)
+        self._sidebar_layout.setSpacing(8)
 
-        def section(text):
-            lbl = QLabel(text)
-            lbl.setStyleSheet(
-                "color: #4a5568; font-size: 10px; font-weight: 700; "
-                "letter-spacing: 2px; margin-bottom: 4px;"
-            )
-            return lbl
+        self._section_labels = []
+        self._hint_labels    = []
+        self._token_legend_rows = []
 
-        def make_btn(text, icon, primary=False, blue=False, danger=False, teal=False):
-            btn = QPushButton(f"  {icon}  {text}")
-            btn.setCursor(Qt.PointingHandCursor)
-            if primary:
-                s = ("QPushButton{background:#00897b;color:#fff;border:none;"
-                     "border-radius:8px;padding:10px 8px;font-size:13px;"
-                     "font-weight:600;text-align:left;}"
-                     "QPushButton:hover{background:#00acc1;}"
-                     "QPushButton:pressed{background:#007c6d;}"
-                     "QPushButton:disabled{background:#1a3a36;color:#2d6a54;}")
-            elif blue:
-                s = ("QPushButton{background:#1a2b4a;color:#89ddff;"
-                     "border:1px solid #2d5486;border-radius:8px;"
-                     "padding:10px 8px;font-size:13px;font-weight:600;text-align:left;}"
-                     "QPushButton:hover{background:#1e3a5f;color:#e6edf3;}"
-                     "QPushButton:pressed{background:#0f2340;}"
-                     "QPushButton:disabled{color:#30363d;border-color:#21262d;}")
-            elif teal:
-                s = ("QPushButton{background:#1a3a36;color:#80cbc4;"
-                     "border:1px solid #2d6a54;border-radius:8px;"
-                     "padding:10px 8px;font-size:13px;text-align:left;}"
-                     "QPushButton:hover{background:#1e4a44;color:#e6edf3;}"
-                     "QPushButton:pressed{background:#0f2d28;}"
-                     "QPushButton:disabled{color:#30363d;border-color:#21262d;}")
-            elif danger:
-                s = ("QPushButton{background:#1a2332;color:#f07178;"
-                     "border:1px solid #f07178;border-radius:8px;"
-                     "padding:10px 8px;font-size:13px;text-align:left;}"
-                     "QPushButton:hover{background:#2d1a1e;}"
-                     "QPushButton:pressed{background:#1a0e10;}")
-            else:
-                s = ("QPushButton{background:#161b22;color:#c9d1d9;"
-                     "border:1px solid #30363d;border-radius:8px;"
-                     "padding:10px 8px;font-size:13px;text-align:left;}"
-                     "QPushButton:hover{background:#21262d;color:#e6edf3;}"
-                     "QPushButton:pressed{background:#30363d;}")
-            btn.setStyleSheet(s)
-            return btn
+        self._section_actions = self._make_section_label("ACTIONS")
+        self._sidebar_layout.addWidget(self._section_actions)
 
-        def hint(text):
-            lbl = QLabel(text)
-            lbl.setStyleSheet("color: #4a5568; font-size: 10px; margin-left: 8px;")
-            return lbl
-
-        layout.addWidget(section("ACTIONS"))
-
-        self._btn_analyze    = make_btn("Analyze",     "▶", primary=True)
-        self._btn_compile    = make_btn("Full Compile", "⚙", blue=True)
-        self._btn_open       = make_btn("Open File",   "📂")
-        self._btn_save       = make_btn("Save Input",  "💾")
-        self._btn_export     = make_btn("Export Tokens","📤")
-        self._btn_save_ast   = make_btn("Save AST",    "🖼", teal=True)
-        self._btn_clear      = make_btn("Clear All",   "✕", danger=True)
+        self._btn_analyze    = self._make_btn("Analyze",      "▶", primary=True)
+        self._btn_compile    = self._make_btn("Full Compile", "⚙", blue=True)
+        self._btn_open       = self._make_btn("Open File",    "📂")
+        self._btn_save       = self._make_btn("Save Input",   "💾")
+        self._btn_export     = self._make_btn("Export Tokens","📤")
+        self._btn_save_ast   = self._make_btn("Save AST",     "🖼", teal=True)
+        self._btn_clear      = self._make_btn("Clear All",    "✕", danger=True)
 
         self._btn_analyze.clicked.connect(self._on_analyze)
         self._btn_compile.clicked.connect(self._on_compile)
@@ -775,75 +1150,162 @@ class LexicalAnalyzerWindow(QMainWindow):
         self._btn_clear.clicked.connect(self._on_clear)
         self._btn_save_ast.setEnabled(False)
 
+        hint_f5   = self._make_hint("F5  /  Ctrl+R")
+        hint_f6   = self._make_hint("F6  /  Ctrl+Shift+R")
+        hint_o    = self._make_hint("Ctrl+O")
+        hint_s    = self._make_hint("Ctrl+S")
+        hint_out  = self._make_hint("Saves to output/")
+        hint_cl   = self._make_hint("Ctrl+L")
+
+        self._all_hints = [hint_f5, hint_f6, hint_o, hint_s, hint_out, hint_cl]
+
         for widget in [
-            self._btn_analyze,   hint("F5  /  Ctrl+R"),
-            self._btn_compile,   hint("F6  /  Ctrl+Shift+R"),
-            self._btn_open,      hint("Ctrl+O"),
-            self._btn_save,      hint("Ctrl+S"),
+            self._btn_analyze,   hint_f5,
+            self._btn_compile,   hint_f6,
+            self._btn_open,      hint_o,
+            self._btn_save,      hint_s,
             self._btn_export,
-            self._btn_save_ast,  hint("Saves to output/"),
-            self._btn_clear,     hint("Ctrl+L"),
+            self._btn_save_ast,  hint_out,
+            self._btn_clear,     hint_cl,
         ]:
-            layout.addWidget(widget)
+            self._sidebar_layout.addWidget(widget)
 
-        layout.addStretch()
+        self._sidebar_layout.addStretch()
 
-        layout.addWidget(section("TOKEN TYPES"))
+        self._section_tokens = self._make_section_label("TOKEN TYPES")
+        self._sidebar_layout.addWidget(self._section_tokens)
+        self._token_legend_rows = []
         for cat, color in TOKEN_COLORS.items():
             row = QHBoxLayout()
             dot = QLabel("●")
             dot.setStyleSheet(f"color: {color}; font-size: 14px;")
             lbl = QLabel(cat)
-            lbl.setStyleSheet("color: #8892a4; font-size: 11px;")
+            lbl.setStyleSheet(f"color: {t['token_lbl_fg']}; font-size: 11px;")
             row.addWidget(dot)
             row.addWidget(lbl)
             row.addStretch()
-            layout.addLayout(row)
+            self._sidebar_layout.addLayout(row)
+            self._token_legend_rows.append((dot, lbl, color))
 
-        return sidebar
+        return self._sidebar
+
+    def _make_section_label(self, text: str) -> QLabel:
+        t = self._tm.t
+        lbl = QLabel(text)
+        lbl.setStyleSheet(
+            f"color: {t['section_fg']}; font-size: 10px; font-weight: 700; "
+            f"letter-spacing: 2px; margin-bottom: 4px;"
+        )
+        return lbl
+
+    def _make_hint(self, text: str) -> QLabel:
+        t = self._tm.t
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"color: {t['hint_fg']}; font-size: 10px; margin-left: 8px;")
+        return lbl
+
+    def _make_btn(self, text, icon, primary=False, blue=False, danger=False, teal=False) -> QPushButton:
+        t = self._tm.t
+        btn = QPushButton(f"  {icon}  {text}")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet(self._btn_style(t, primary=primary, blue=blue, danger=danger, teal=teal))
+        return btn
+
+    @staticmethod
+    def _btn_style(t: dict, primary=False, blue=False, danger=False, teal=False) -> str:
+        if primary:
+            return (
+                f"QPushButton{{background:{t['btn_primary_bg']};color:#fff;border:none;"
+                f"border-radius:8px;padding:10px 8px;font-size:13px;"
+                f"font-weight:600;text-align:left;}}"
+                f"QPushButton:hover{{background:{t['btn_primary_hover']};}}"
+                f"QPushButton:pressed{{background:{t['btn_primary_pressed']};}}"
+                f"QPushButton:disabled{{background:{t['btn_primary_dis_bg']};"
+                f"color:{t['btn_primary_dis_fg']};}}"
+            )
+        elif blue:
+            return (
+                f"QPushButton{{background:{t['btn_blue_bg']};color:{t['btn_blue_fg']};"
+                f"border:1px solid {t['btn_blue_border']};border-radius:8px;"
+                f"padding:10px 8px;font-size:13px;font-weight:600;text-align:left;}}"
+                f"QPushButton:hover{{background:{t['btn_blue_hover']};color:{t['btn_blue_hover_fg']};}}"
+                f"QPushButton:pressed{{background:{t['btn_blue_pressed']};}}"
+                f"QPushButton:disabled{{color:{t['btn_blue_dis_fg']};"
+                f"border-color:{t['btn_blue_dis_border']};}}"
+            )
+        elif teal:
+            return (
+                f"QPushButton{{background:{t['btn_teal_bg']};color:{t['btn_teal_fg']};"
+                f"border:1px solid {t['btn_teal_border']};border-radius:8px;"
+                f"padding:10px 8px;font-size:13px;text-align:left;}}"
+                f"QPushButton:hover{{background:{t['btn_teal_hover']};color:{t['btn_teal_hover_fg']};}}"
+                f"QPushButton:pressed{{background:{t['btn_teal_pressed']};}}"
+                f"QPushButton:disabled{{color:{t['btn_blue_dis_fg']};"
+                f"border-color:{t['btn_blue_dis_border']};}}"
+            )
+        elif danger:
+            return (
+                f"QPushButton{{background:{t['btn_danger_bg']};color:{t['btn_danger_fg']};"
+                f"border:1px solid {t['btn_danger_border']};border-radius:8px;"
+                f"padding:10px 8px;font-size:13px;text-align:left;}}"
+                f"QPushButton:hover{{background:{t['btn_danger_hover']};}}"
+                f"QPushButton:pressed{{background:{t['btn_danger_pressed']};}}"
+            )
+        else:
+            return (
+                f"QPushButton{{background:{t['btn_def_bg']};color:{t['btn_def_fg']};"
+                f"border:1px solid {t['btn_def_border']};border-radius:8px;"
+                f"padding:10px 8px;font-size:13px;text-align:left;}}"
+                f"QPushButton:hover{{background:{t['btn_def_hover']};color:{t['btn_def_hover_fg']};}}"
+                f"QPushButton:pressed{{background:{t['btn_def_pressed']};}}"
+            )
 
     # ── Center (editor + output tabs) ─────────────────────────────────────────
     def _build_center(self) -> QWidget:
-        center = QWidget()
-        center.setStyleSheet("background: #0d1117;")
-        layout = QVBoxLayout(center)
+        t = self._tm.t
+        self._center = QWidget()
+        self._center.setStyleSheet(f"background: {t['bg_primary']};")
+        layout = QVBoxLayout(self._center)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        splitter = QSplitter(Qt.Vertical)
-        splitter.setStyleSheet("QSplitter::handle{background:#21262d;height:3px;}")
+        self._splitter = QSplitter(Qt.Vertical)
+        self._splitter.setStyleSheet(
+            f"QSplitter::handle{{background:{t['splitter_handle']};height:3px;}}"
+        )
 
         # ── Editor ────────────────────────────────────────────────────────────
-        editor_container = QWidget()
-        editor_container.setStyleSheet("background: #0d1117;")
-        ec_layout = QVBoxLayout(editor_container)
+        self._editor_container = QWidget()
+        self._editor_container.setStyleSheet(f"background: {t['bg_primary']};")
+        ec_layout = QVBoxLayout(self._editor_container)
         ec_layout.setContentsMargins(0, 0, 0, 0)
         ec_layout.setSpacing(0)
 
-        editor_hdr = QWidget()
-        editor_hdr.setFixedHeight(36)
-        editor_hdr.setStyleSheet("background:#161b22;border-bottom:1px solid #21262d;")
-        eh_l = QHBoxLayout(editor_hdr)
-        eh_l.setContentsMargins(16, 0, 16, 0)
-        src_lbl = QLabel("SOURCE CODE")
-        src_lbl.setStyleSheet(
-            "color:#4a5568;font-size:10px;font-weight:700;letter-spacing:2px;"
+        self._editor_hdr = QWidget()
+        self._editor_hdr.setFixedHeight(36)
+        self._editor_hdr.setStyleSheet(
+            f"background:{t['src_hdr_bg']};border-bottom:1px solid {t['border_primary']};"
         )
-        eh_l.addWidget(src_lbl)
+        eh_l = QHBoxLayout(self._editor_hdr)
+        eh_l.setContentsMargins(16, 0, 16, 0)
+        self._src_lbl = QLabel("SOURCE CODE")
+        self._src_lbl.setStyleSheet(
+            f"color:{t['src_hdr_fg']};font-size:10px;font-weight:700;letter-spacing:2px;"
+        )
+        eh_l.addWidget(self._src_lbl)
         eh_l.addStretch()
         self._cursor_pos_label = QLabel("Ln 1, Col 1")
-        self._cursor_pos_label.setStyleSheet("color:#4a5568;font-size:11px;")
+        self._cursor_pos_label.setStyleSheet(
+            f"color:{t['cursor_lbl_fg']};font-size:11px;"
+        )
         eh_l.addWidget(self._cursor_pos_label)
-        ec_layout.addWidget(editor_hdr)
+        ec_layout.addWidget(self._editor_hdr)
 
         self._editor = CodeEditor()
-        self._editor.setStyleSheet(
-            "QPlainTextEdit{background:#0d1117;color:#e6edf3;border:none;"
-            "selection-background-color:#264f78;}"
-        )
+        self._editor.update_theme()
         self._editor.cursorPositionChanged.connect(self._update_cursor_pos)
         ec_layout.addWidget(self._editor)
-        splitter.addWidget(editor_container)
+        self._splitter.addWidget(self._editor_container)
 
         # ── Output tabs ───────────────────────────────────────────────────────
         self._tabs = QTabWidget()
@@ -861,26 +1323,30 @@ class LexicalAnalyzerWindow(QMainWindow):
             self._stage_tab_idx[code] = idx
             self._tabs.addTab(tab_widget, f"  {label}  ")
 
-        splitter.addWidget(self._tabs)
-        splitter.setSizes([400, 380])
-        layout.addWidget(splitter)
-        return center
+        self._splitter.addWidget(self._tabs)
+        self._splitter.setSizes([400, 380])
+        layout.addWidget(self._splitter)
+        return self._center
 
     def _tab_style(self) -> str:
+        t = self._tm.t
         return (
-            "QTabWidget::pane{border:none;background:#0d1117;}"
-            "QTabBar::tab{background:#161b22;color:#8892a4;padding:7px 16px;"
-            "font-size:11px;font-weight:600;border:none;"
-            "border-bottom:2px solid transparent;}"
-            "QTabBar::tab:selected{color:#80cbc4;border-bottom:2px solid #80cbc4;"
-            "background:#0d1117;}"
-            "QTabBar::tab:hover:!selected{background:#1c2230;color:#c9d1d9;}"
+            f"QTabWidget::pane{{border:none;background:{t['bg_primary']};}}"
+            f"QTabBar::tab{{background:{t['tab_bg']};color:{t['tab_fg']};padding:7px 16px;"
+            f"font-size:11px;font-weight:600;border:none;"
+            f"border-bottom:2px solid transparent;}}"
+            f"QTabBar::tab:selected{{color:{t['tab_active_fg']};"
+            f"border-bottom:2px solid {t['tab_active_border']};"
+            f"background:{t['tab_active_bg']};}}"
+            f"QTabBar::tab:hover:!selected{{background:{t['tab_hover_bg']};"
+            f"color:{t['tab_hover_fg']};}}"
         )
 
     # ── Tokens tab ────────────────────────────────────────────────────────────
     def _build_tokens_tab(self) -> QWidget:
+        t = self._tm.t
         w = QWidget()
-        w.setStyleSheet("background:#0d1117;")
+        w.setStyleSheet(f"background:{t['bg_primary']};")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -901,21 +1367,28 @@ class LexicalAnalyzerWindow(QMainWindow):
         return w
 
     def _table_style(self) -> str:
+        t = self._tm.t
         return (
-            "QTableWidget{background:#0d1117;alternate-background-color:#111827;"
-            "color:#e6edf3;border:none;gridline-color:#21262d;font-size:13px;}"
-            "QTableWidget::item:selected{background:#1e3a5f;}"
-            "QHeaderView::section{background:#161b22;color:#8892a4;font-size:11px;"
-            "font-weight:700;letter-spacing:1px;padding:8px 12px;border:none;"
-            "border-bottom:1px solid #21262d;}"
-            "QScrollBar:vertical{background:#161b22;width:8px;border:none;}"
-            "QScrollBar::handle:vertical{background:#30363d;border-radius:4px;min-height:20px;}"
+            f"QTableWidget{{background:{t['table_bg']};"
+            f"alternate-background-color:{t['table_alt_bg']};"
+            f"color:{t['table_fg']};border:none;"
+            f"gridline-color:{t['table_border']};font-size:13px;}}"
+            f"QTableWidget::item:selected{{background:{t['table_selected']};}}"
+            f"QHeaderView::section{{background:{t['table_header_bg']};"
+            f"color:{t['table_header_fg']};font-size:11px;"
+            f"font-weight:700;letter-spacing:1px;padding:8px 12px;border:none;"
+            f"border-bottom:1px solid {t['table_border']};}}"
+            f"QScrollBar:vertical{{background:{t['scroll_bg']};width:8px;border:none;}}"
+            f"QScrollBar::handle:vertical{{background:{t['scroll_handle']};"
+            f"border-radius:4px;min-height:20px;}}"
+            f"QScrollBar::handle:vertical:hover{{background:{t['scroll_handle_hover']};}}"
         )
 
     # ── Errors tab ────────────────────────────────────────────────────────────
     def _build_errors_tab(self) -> QWidget:
+        t = self._tm.t
         w = QWidget()
-        w.setStyleSheet("background:#0d1117;")
+        w.setStyleSheet(f"background:{t['bg_primary']};")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(16, 16, 16, 16)
 
@@ -928,13 +1401,16 @@ class LexicalAnalyzerWindow(QMainWindow):
 
     # ── Summary tab ───────────────────────────────────────────────────────────
     def _build_summary_tab(self) -> QWidget:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("QScrollArea{border:none;background:#0d1117;}")
+        t = self._tm.t
+        self._summary_scroll = QScrollArea()
+        self._summary_scroll.setWidgetResizable(True)
+        self._summary_scroll.setStyleSheet(
+            f"QScrollArea{{border:none;background:{t['bg_primary']};}}"
+        )
 
-        w = QWidget()
-        w.setStyleSheet("background:#0d1117;")
-        layout = QVBoxLayout(w)
+        self._summary_inner = QWidget()
+        self._summary_inner.setStyleSheet(f"background:{t['bg_primary']};")
+        layout = QVBoxLayout(self._summary_inner)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(16)
 
@@ -948,11 +1424,12 @@ class LexicalAnalyzerWindow(QMainWindow):
             cards_row.addWidget(card)
         layout.addLayout(cards_row)
 
-        breakdown_label = QLabel("TOKEN DISTRIBUTION")
-        breakdown_label.setStyleSheet(
-            "color:#4a5568;font-size:10px;font-weight:700;letter-spacing:2px;margin-top:8px;"
+        self._breakdown_label = QLabel("TOKEN DISTRIBUTION")
+        self._breakdown_label.setStyleSheet(
+            f"color:{t['section_fg']};font-size:10px;font-weight:700;"
+            f"letter-spacing:2px;margin-top:8px;"
         )
-        layout.addWidget(breakdown_label)
+        layout.addWidget(self._breakdown_label)
 
         self._breakdown_table = QTableWidget(0, 3)
         self._breakdown_table.setHorizontalHeaderLabels(["Category", "Count", "Unique"])
@@ -963,22 +1440,26 @@ class LexicalAnalyzerWindow(QMainWindow):
         self._breakdown_table.setShowGrid(False)
         self._breakdown_table.setMaximumHeight(260)
         self._breakdown_table.setStyleSheet(
-            "QTableWidget{background:#111827;alternate-background-color:#161b22;"
-            "color:#e6edf3;border:1px solid #21262d;border-radius:8px;font-size:13px;}"
-            "QTableWidget::item:selected{background:#1e3a5f;}"
-            "QHeaderView::section{background:#161b22;color:#8892a4;font-size:11px;"
-            "font-weight:700;letter-spacing:1px;padding:8px 12px;border:none;"
-            "border-bottom:1px solid #21262d;}"
+            f"QTableWidget{{background:{t['breakdown_bg']};"
+            f"alternate-background-color:{t['breakdown_alt_bg']};"
+            f"color:{t['table_fg']};border:1px solid {t['table_border']};"
+            f"border-radius:8px;font-size:13px;}}"
+            f"QTableWidget::item:selected{{background:{t['table_selected']};}}"
+            f"QHeaderView::section{{background:{t['table_header_bg']};"
+            f"color:{t['table_header_fg']};font-size:11px;"
+            f"font-weight:700;letter-spacing:1px;padding:8px 12px;border:none;"
+            f"border-bottom:1px solid {t['table_border']};}}"
         )
         layout.addWidget(self._breakdown_table)
         layout.addStretch()
-        scroll.setWidget(w)
-        return scroll
+        self._summary_scroll.setWidget(self._summary_inner)
+        return self._summary_scroll
 
     # ── Generic pipeline stage tab ────────────────────────────────────────────
     def _build_stage_tab(self, code: str, label: str, color: str) -> QWidget:
+        t = self._tm.t
         w = QWidget()
-        w.setStyleSheet("background:#0d1117;")
+        w.setStyleSheet(f"background:{t['bg_primary']};")
         layout = QVBoxLayout(w)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -986,7 +1467,9 @@ class LexicalAnalyzerWindow(QMainWindow):
         # Mini header
         hdr = QWidget()
         hdr.setFixedHeight(36)
-        hdr.setStyleSheet("background:#161b22;border-bottom:1px solid #21262d;")
+        hdr.setStyleSheet(
+            f"background:{t['src_hdr_bg']};border-bottom:1px solid {t['border_primary']};"
+        )
         hdr_l = QHBoxLayout(hdr)
         hdr_l.setContentsMargins(16, 0, 16, 0)
         hdr_lbl = QLabel(label.upper())
@@ -1002,11 +1485,12 @@ class LexicalAnalyzerWindow(QMainWindow):
             self._ast_download_btn.setCursor(Qt.PointingHandCursor)
             self._ast_download_btn.setEnabled(False)
             self._ast_download_btn.setStyleSheet(
-                "QPushButton{background:#1a3a36;color:#80cbc4;"
-                "border:1px solid #2d6a54;border-radius:5px;"
-                "font-size:11px;padding:3px 12px;}"
-                "QPushButton:hover{background:#1e4a44;color:#e6edf3;}"
-                "QPushButton:disabled{color:#30363d;border-color:#21262d;background:#111;}"
+                f"QPushButton{{background:{t['ast_dl_bg']};color:{t['ast_dl_fg']};"
+                f"border:1px solid {t['ast_dl_border']};border-radius:5px;"
+                f"font-size:11px;padding:3px 12px;}}"
+                f"QPushButton:hover{{background:{t['ast_dl_hover']};color:{t['ast_dl_hover_fg']};}}"
+                f"QPushButton:disabled{{color:{t['ast_dl_dis_fg']};"
+                f"border-color:{t['ast_dl_dis_border']};background:{t['ast_dl_dis_bg']};}}"
             )
             self._ast_download_btn.clicked.connect(self._on_save_ast)
             hdr_l.addWidget(self._ast_download_btn)
@@ -1016,9 +1500,9 @@ class LexicalAnalyzerWindow(QMainWindow):
         copy_btn = QPushButton("⎘ Copy")
         copy_btn.setCursor(Qt.PointingHandCursor)
         copy_btn.setStyleSheet(
-            "QPushButton{background:transparent;color:#4a5568;border:none;"
-            "font-size:11px;padding:2px 8px;}"
-            "QPushButton:hover{color:#e6edf3;}"
+            f"QPushButton{{background:transparent;color:{t['copy_btn_fg']};border:none;"
+            f"font-size:11px;padding:2px 8px;}}"
+            f"QPushButton:hover{{color:{t['copy_btn_hover_fg']};}}"
         )
         hdr_l.addWidget(copy_btn)
         layout.addWidget(hdr)
@@ -1027,7 +1511,7 @@ class LexicalAnalyzerWindow(QMainWindow):
         if code == "AST":
             # We use a stacked approach: tree + error label share a container
             ast_container = QWidget()
-            ast_container.setStyleSheet("background:#0d1117;")
+            ast_container.setStyleSheet(f"background:{t['bg_primary']};")
             ast_layout = QVBoxLayout(ast_container)
             ast_layout.setContentsMargins(0, 0, 0, 0)
             ast_layout.setSpacing(0)
@@ -1035,24 +1519,18 @@ class LexicalAnalyzerWindow(QMainWindow):
             # Interactive tree widget
             self._ast_tree = QTreeWidget()
             self._ast_tree.setHeaderHidden(True)
-            self._ast_tree.setStyleSheet(
-                "QTreeWidget{background:#0d1117;color:#e6edf3;border:none;"
-                "font-family:Consolas,monospace;font-size:12px;}"
-                "QTreeWidget::item:selected{background:#1e3a5f;}"
-                "QTreeWidget::item:hover{background:#111827;}"
-                "QTreeWidget::branch{background:#0d1117;}"
-            )
+            self._ast_tree.setStyleSheet(self._tree_style())
             ast_layout.addWidget(self._ast_tree)
 
             # Scrollable image area (graphviz PNG)
             self._ast_img_scroll = QScrollArea()
             self._ast_img_scroll.setWidgetResizable(True)
             self._ast_img_scroll.setStyleSheet(
-                "QScrollArea{border:none;background:#0d1117;}"
+                f"QScrollArea{{border:none;background:{t['bg_primary']};}}"
             )
             self._ast_img_label = QLabel()
             self._ast_img_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-            self._ast_img_label.setStyleSheet("background:#0d1117;padding:12px;")
+            self._ast_img_label.setStyleSheet(f"background:{t['bg_primary']};padding:12px;")
             self._ast_img_scroll.setWidget(self._ast_img_label)
             self._ast_img_scroll.setVisible(False)
             ast_layout.addWidget(self._ast_img_scroll)
@@ -1062,8 +1540,8 @@ class LexicalAnalyzerWindow(QMainWindow):
             self._ast_msg_label.setAlignment(Qt.AlignTop | Qt.AlignLeft)
             self._ast_msg_label.setWordWrap(True)
             self._ast_msg_label.setStyleSheet(
-                "QLabel{color:#f07178;font-family:Consolas,monospace;"
-                "font-size:13px;padding:24px;background:#0d1117;}"
+                f"QLabel{{color:#f07178;font-family:Consolas,monospace;"
+                f"font-size:13px;padding:24px;background:{t['bg_primary']};}}"
             )
             self._ast_msg_label.setVisible(False)
             ast_layout.addWidget(self._ast_msg_label)
@@ -1077,19 +1555,14 @@ class LexicalAnalyzerWindow(QMainWindow):
         if code == "TREE":
             tree = QTreeWidget()
             tree.setHeaderHidden(True)
-            tree.setStyleSheet(
-                "QTreeWidget{background:#0d1117;color:#e6edf3;border:none;"
-                "font-family:Consolas,monospace;font-size:12px;}"
-                "QTreeWidget::item:selected{background:#1e3a5f;}"
-                "QTreeWidget::item:hover{background:#111827;}"
-                "QTreeWidget::branch{background:#0d1117;}"
-            )
+            tree.setStyleSheet(self._tree_style())
             setattr(self, "_stage_tree_TREE", tree)
             layout.addWidget(tree)
             copy_btn.clicked.connect(lambda checked=False, t=tree: self._copy_tree(t))
             return w
 
         # ── All other stages: plain text ──────────────────────────────────────
+        t = self._tm.t
         pte = QPlainTextEdit()
         pte.setReadOnly(True)
         pte.setPlaceholderText(f"Run ⚙ Full Compile to generate {label}…")
@@ -1097,8 +1570,8 @@ class LexicalAnalyzerWindow(QMainWindow):
         font.setPointSize(12)
         pte.setFont(font)
         pte.setStyleSheet(
-            f"QPlainTextEdit{{background:#0d1117;color:{color};"
-            "border:none;selection-background-color:#264f78;}"
+            f"QPlainTextEdit{{background:{t['editor_bg']};color:{color};"
+            f"border:none;selection-background-color:{t['editor_selection']};}}"
         )
         if code == "ASM":
             setattr(self, "_asm_highlighter", AsmHighlighter(pte.document()))
@@ -1108,6 +1581,16 @@ class LexicalAnalyzerWindow(QMainWindow):
             lambda checked=False, p=pte: QApplication.clipboard().setText(p.toPlainText())
         )
         return w
+
+    def _tree_style(self) -> str:
+        t = self._tm.t
+        return (
+            f"QTreeWidget{{background:{t['editor_bg']};color:{t['editor_fg']};border:none;"
+            f"font-family:Consolas,monospace;font-size:12px;}}"
+            f"QTreeWidget::item:selected{{background:{t['table_selected']};}}"
+            f"QTreeWidget::item:hover{{background:{t['bg_tertiary']};}}"
+            f"QTreeWidget::branch{{background:{t['editor_bg']};}}"
+        )
 
     # ── AST helpers ───────────────────────────────────────────────────────────
     def _copy_ast_tree(self):
@@ -1160,10 +1643,185 @@ class LexicalAnalyzerWindow(QMainWindow):
 
     # ── Style helpers ─────────────────────────────────────────────────────────
     def _readonly_textedit_style(self) -> str:
+        t = self._tm.t
         return (
-            "QTextEdit{background:#0d1117;color:#e6edf3;border:none;"
-            "font-family:Consolas,'JetBrains Mono',monospace;font-size:13px;}"
+            f"QTextEdit{{background:{t['editor_bg']};color:{t['editor_fg']};border:none;"
+            f"font-family:Consolas,'JetBrains Mono',monospace;font-size:13px;}}"
         )
+
+    # ── Theme toggle ──────────────────────────────────────────────────────────
+    def _on_toggle_theme(self):
+        """Switch between dark and light themes and re-apply all styles."""
+        self._tm.toggle()
+        self._apply_theme_to_all()
+
+    def _apply_theme_to_all(self):
+        """Re-apply the active theme to every widget in the window."""
+        t = self._tm.t
+        app = QApplication.instance()
+
+        # Re-apply qt_material stylesheet
+        apply_stylesheet(app, theme=t["qt_material"], extra={
+            "density_scale": "0",
+            "font_family":   "Roboto",
+        })
+        app.setStyleSheet(app.styleSheet() + self._global_stylesheet())
+
+        # ── Header ────────────────────────────────────────────────────────────
+        self._header.setStyleSheet(
+            f"background: qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {t['header_grad_start']}, stop:0.5 {t['header_grad_mid']},"
+            f" stop:1 {t['header_grad_start']});"
+            f"border-bottom: 1px solid {t['header_border']};"
+        )
+        label_specs = [
+            f"color:{t['accent_teal']};font-size:22px;font-weight:700;margin-right:10px;",
+            f"color:{t['text_primary']};font-size:20px;font-weight:700;letter-spacing:0.5px;",
+            f"color:{t['text_disabled']};font-size:20px;margin:0 8px;",
+            f"color:{t['text_muted']};font-size:13px;",
+        ]
+        for (lbl, _), style in zip(self._header_labels, label_specs):
+            lbl.setStyleSheet(style)
+        self._update_theme_button()
+        self._version_tag.setStyleSheet(
+            f"color: {t['tag_fg']}; background: {t['tag_bg']};"
+            f" border: 1px solid {t['tag_border']};"
+            f"border-radius: 10px; padding: 2px 10px; font-size: 11px; font-weight: 600;"
+        )
+
+        # ── Badges ────────────────────────────────────────────────────────────
+        for badge in self._badges.values():
+            badge.update_theme()
+
+        # ── Sidebar ───────────────────────────────────────────────────────────
+        self._sidebar.setStyleSheet(
+            f"background: {t['bg_secondary']};"
+            f" border-right: 1px solid {t['border_primary']};"
+        )
+        for lbl in (self._section_actions, self._section_tokens):
+            lbl.setStyleSheet(
+                f"color: {t['section_fg']}; font-size: 10px; font-weight: 700; "
+                f"letter-spacing: 2px; margin-bottom: 4px;"
+            )
+        for lbl in self._all_hints:
+            lbl.setStyleSheet(f"color: {t['hint_fg']}; font-size: 10px; margin-left: 8px;")
+        for _, lbl, _ in self._token_legend_rows:
+            lbl.setStyleSheet(f"color: {t['token_lbl_fg']}; font-size: 11px;")
+        # Buttons
+        self._btn_analyze.setStyleSheet(self._btn_style(t, primary=True))
+        self._btn_compile.setStyleSheet(self._btn_style(t, blue=True))
+        self._btn_open.setStyleSheet(self._btn_style(t))
+        self._btn_save.setStyleSheet(self._btn_style(t))
+        self._btn_export.setStyleSheet(self._btn_style(t))
+        self._btn_save_ast.setStyleSheet(self._btn_style(t, teal=True))
+        self._btn_clear.setStyleSheet(self._btn_style(t, danger=True))
+
+        # ── Center ────────────────────────────────────────────────────────────
+        self._center.setStyleSheet(f"background: {t['bg_primary']};")
+        self._splitter.setStyleSheet(
+            f"QSplitter::handle{{background:{t['splitter_handle']};height:3px;}}"
+        )
+        self._editor_container.setStyleSheet(f"background: {t['bg_primary']};")
+        self._editor_hdr.setStyleSheet(
+            f"background:{t['src_hdr_bg']};border-bottom:1px solid {t['border_primary']};"
+        )
+        self._src_lbl.setStyleSheet(
+            f"color:{t['src_hdr_fg']};font-size:10px;font-weight:700;letter-spacing:2px;"
+        )
+        self._cursor_pos_label.setStyleSheet(f"color:{t['cursor_lbl_fg']};font-size:11px;")
+
+        # ── Editor ────────────────────────────────────────────────────────────
+        self._editor.update_theme()
+
+        # ── Tabs ──────────────────────────────────────────────────────────────
+        self._tabs.setStyleSheet(self._tab_style())
+
+        # ── Token table ───────────────────────────────────────────────────────
+        self._token_table.parentWidget().setStyleSheet(f"background:{t['bg_primary']};")
+        self._token_table.setStyleSheet(self._table_style())
+
+        # ── Errors text ───────────────────────────────────────────────────────
+        self._errors_text.parentWidget().setStyleSheet(f"background:{t['bg_primary']};")
+        self._errors_text.setStyleSheet(self._readonly_textedit_style())
+
+        # ── Summary tab ───────────────────────────────────────────────────────
+        self._summary_scroll.setStyleSheet(
+            f"QScrollArea{{border:none;background:{t['bg_primary']};}}"
+        )
+        self._summary_inner.setStyleSheet(f"background:{t['bg_primary']};")
+        self._breakdown_label.setStyleSheet(
+            f"color:{t['section_fg']};font-size:10px;font-weight:700;"
+            f"letter-spacing:2px;margin-top:8px;"
+        )
+        self._breakdown_table.setStyleSheet(
+            f"QTableWidget{{background:{t['breakdown_bg']};"
+            f"alternate-background-color:{t['breakdown_alt_bg']};"
+            f"color:{t['table_fg']};border:1px solid {t['table_border']};"
+            f"border-radius:8px;font-size:13px;}}"
+            f"QTableWidget::item:selected{{background:{t['table_selected']};}}"
+            f"QHeaderView::section{{background:{t['table_header_bg']};"
+            f"color:{t['table_header_fg']};font-size:11px;"
+            f"font-weight:700;letter-spacing:1px;padding:8px 12px;border:none;"
+            f"border-bottom:1px solid {t['table_border']};}}"
+        )
+
+        # ── Metric cards ──────────────────────────────────────────────────────
+        for card in (self._card_total, self._card_errors, self._card_lines, self._card_status):
+            card.update_theme()
+
+        # ── Stage tabs ────────────────────────────────────────────────────────
+        self._apply_stage_tab_themes()
+
+        # ── Status bar ────────────────────────────────────────────────────────
+        self._status_bar.setStyleSheet(
+            f"QStatusBar {{ background: {t['status_bg']}; "
+            f"border-top: 1px solid {t['status_border']}; "
+            f"color: {t['status_fg']}; font-size: 12px; padding: 2px 12px; }}"
+        )
+        for lbl in (self._token_count_label, self._error_count_label, self._line_count_label):
+            lbl.setStyleSheet(f"color: {t['status_fg']}; padding: 0 12px;")
+
+    def _apply_stage_tab_themes(self):
+        """Update styles on all pipeline stage panes and the AST/TREE widgets."""
+        t = self._tm.t
+
+        # AST tree widget
+        if hasattr(self, "_ast_tree"):
+            self._ast_tree.setStyleSheet(self._tree_style())
+        if hasattr(self, "_ast_img_scroll"):
+            self._ast_img_scroll.setStyleSheet(
+                f"QScrollArea{{border:none;background:{t['bg_primary']};}}"
+            )
+        if hasattr(self, "_ast_img_label"):
+            self._ast_img_label.setStyleSheet(f"background:{t['bg_primary']};padding:12px;")
+        if hasattr(self, "_ast_msg_label"):
+            self._ast_msg_label.setStyleSheet(
+                f"QLabel{{color:#f07178;font-family:Consolas,monospace;"
+                f"font-size:13px;padding:24px;background:{t['bg_primary']};}}"
+            )
+        if hasattr(self, "_ast_download_btn"):
+            self._ast_download_btn.setStyleSheet(
+                f"QPushButton{{background:{t['ast_dl_bg']};color:{t['ast_dl_fg']};"
+                f"border:1px solid {t['ast_dl_border']};border-radius:5px;"
+                f"font-size:11px;padding:3px 12px;}}"
+                f"QPushButton:hover{{background:{t['ast_dl_hover']};color:{t['ast_dl_hover_fg']};}}"
+                f"QPushButton:disabled{{color:{t['ast_dl_dis_fg']};"
+                f"border-color:{t['ast_dl_dis_border']};background:{t['ast_dl_dis_bg']};}}"
+            )
+
+        # TREE widget
+        tree_tree = getattr(self, "_stage_tree_TREE", None)
+        if tree_tree:
+            tree_tree.setStyleSheet(self._tree_style())
+
+        # Plain-text stage panes
+        for code, _, color in STAGES:
+            pte = getattr(self, f"_stage_pte_{code}", None)
+            if pte:
+                pte.setStyleSheet(
+                    f"QPlainTextEdit{{background:{t['editor_bg']};color:{color};"
+                    f"border:none;selection-background-color:{t['editor_selection']};}}"
+                )
 
     # ── Shortcuts ─────────────────────────────────────────────────────────────
     def _connect_shortcuts(self):
@@ -1319,12 +1977,13 @@ class LexicalAnalyzerWindow(QMainWindow):
     @Slot(str, object)
     def _on_stage_done(self, code: str, data: object):
         """Handle completion of one pipeline stage — all cases."""
+        t = self._tm.t
 
         # ── LEX ──────────────────────────────────────────────────────────────
         if code == "LEX":
             tokens = data
             self._tokens = tokens
-            errors = [t for t in tokens if t["type"] == "Unknown"]
+            errors = [tok for tok in tokens if tok["type"] == "Unknown"]
             self._populate_token_table(tokens)
             self._populate_errors_tab(errors)
             self._populate_summary_tab(tokens)
@@ -1361,8 +2020,8 @@ class LexicalAnalyzerWindow(QMainWindow):
             pte = getattr(self, "_stage_pte_SEM", None)
             if pte:
                 pte.setStyleSheet(
-                    f"QPlainTextEdit{{background:#0d1117;color:{color};"
-                    "border:none;selection-background-color:#264f78;}"
+                    f"QPlainTextEdit{{background:{t['editor_bg']};color:{color};"
+                    f"border:none;selection-background-color:{t['editor_selection']};}}"
                 )
                 pte.setPlainText(text)
             self._badges["SEM"].set_state("ok" if status == "ok" else "error")
@@ -1434,11 +2093,12 @@ class LexicalAnalyzerWindow(QMainWindow):
 
     def _set_stage_pte_error(self, code: str, message: str):
         """Show an error message in a plain-text stage tab with red colour."""
+        t = self._tm.t
         pte = getattr(self, f"_stage_pte_{code}", None)
         if pte:
             pte.setStyleSheet(
-                "QPlainTextEdit{background:#0d1117;color:#f07178;"
-                "border:none;selection-background-color:#264f78;}"
+                f"QPlainTextEdit{{background:{t['editor_bg']};color:#f07178;"
+                f"border:none;selection-background-color:{t['editor_selection']};}}"
             )
             pte.setPlainText(message)
 
@@ -1537,9 +2197,9 @@ class LexicalAnalyzerWindow(QMainWindow):
             try:
                 with open(path, "w", encoding="utf-8") as f:
                     f.write("Lexeme,Type,Line,Column\n")
-                    for t in self._tokens:
-                        lexeme = str(t["value"]).replace('"', '""')
-                        f.write(f'"{lexeme}",{t["type"]},{t["line"]},{t["column"]}\n')
+                    for tok in self._tokens:
+                        lexeme = str(tok["value"]).replace('"', '""')
+                        f.write(f'"{lexeme}",{tok["type"]},{tok["line"]},{tok["column"]}\n')
                 self._set_status(f"Exported → {Path(path).name}", "success")
             except Exception as exc:
                 QMessageBox.critical(self, "Export Error", str(exc))
@@ -1591,7 +2251,8 @@ class LexicalAnalyzerWindow(QMainWindow):
         self._error_count_label.setText("Errors: 0")
         self._line_count_label.setText("Lines: 0")
 
-        for code, _, _ in STAGES:
+        t = self._tm.t
+        for code, _, color in STAGES:
             if code == "TREE":
                 tree = getattr(self, "_stage_tree_TREE", None)
                 if tree:
@@ -1604,11 +2265,10 @@ class LexicalAnalyzerWindow(QMainWindow):
                 pte = getattr(self, f"_stage_pte_{code}", None)
                 if pte:
                     pte.clear()
-                    # Restore default colour
-                    _, _, color = next(s for s in STAGES if s[0] == code)
+                    # Restore default colour for this stage
                     pte.setStyleSheet(
-                        f"QPlainTextEdit{{background:#0d1117;color:{color};"
-                        "border:none;selection-background-color:#264f78;}}"
+                        f"QPlainTextEdit{{background:{t['editor_bg']};color:{color};"
+                        f"border:none;selection-background-color:{t['editor_selection']};}}"
                     )
 
         self._btn_save_ast.setEnabled(False)
@@ -1648,13 +2308,13 @@ class LexicalAnalyzerWindow(QMainWindow):
             "<p style='color:#f07178;font-size:14px;font-weight:700;margin:0 0 12px;'>"
             f"⚠  {len(errors)} Lexical Error(s) Found</p>"
         ]
-        for i, t in enumerate(errors, 1):
+        for i, tok in enumerate(errors, 1):
             lines.append(
                 f"<p style='color:#ff5370;font-family:Consolas,monospace;margin:4px 0;'>"
                 f"<span style='color:#4a5568;'>[{i:03d}]</span>  "
-                f"Unknown token &nbsp;<b style='color:#f07178;'>'{t['value']}'</b>"
-                f"&nbsp; at line <b style='color:#ffcb6b;'>{t['line']}</b>, "
-                f"col <b style='color:#89ddff;'>{t['column']}</b></p>"
+                f"Unknown token &nbsp;<b style='color:#f07178;'>'{tok['value']}'</b>"
+                f"&nbsp; at line <b style='color:#ffcb6b;'>{tok['line']}</b>, "
+                f"col <b style='color:#89ddff;'>{tok['column']}</b></p>"
             )
         self._errors_text.setHtml("".join(lines))
 
@@ -1676,8 +2336,8 @@ class LexicalAnalyzerWindow(QMainWindow):
 
         by_type   = Counter(t["type"] for t in tokens)
         unique_by = {}
-        for t in tokens:
-            unique_by.setdefault(t["type"], set()).add(t["value"])
+        for tok in tokens:
+            unique_by.setdefault(tok["type"], set()).add(tok["value"])
 
         self._breakdown_table.setRowCount(0)
         for cat in ["Keywords", "Identifiers", "Operators", "Punctuation",
@@ -1700,40 +2360,52 @@ class LexicalAnalyzerWindow(QMainWindow):
             self._breakdown_table.setItem(row, 2, unique_item)
 
 
+# ── Global QSS helper (scrollbars, tooltips, dialogs) ─────────────────────────
+def _build_global_stylesheet(t: dict) -> str:
+    return (
+        f"QMainWindow, QWidget {{ background-color: {t['bg_primary']}; }}"
+        f"QToolTip {{"
+        f"  background: {t['bg_secondary']}; color: {t['text_primary']};"
+        f"  border: 1px solid {t['border_secondary']}; border-radius: 4px; padding: 4px 8px;"
+        f"}}"
+        f"QMessageBox {{ background: {t['bg_secondary']}; }}"
+        f"QMessageBox QLabel {{ color: {t['text_primary']}; }}"
+        f"QScrollBar:vertical {{"
+        f"  background: {t['scroll_bg']}; width: 8px; border: none;"
+        f"}}"
+        f"QScrollBar::handle:vertical {{"
+        f"  background: {t['scroll_handle']}; border-radius: 4px; min-height: 20px;"
+        f"}}"
+        f"QScrollBar::handle:vertical:hover {{ background: {t['scroll_handle_hover']}; }}"
+        f"QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}"
+        f"QScrollBar:horizontal {{"
+        f"  background: {t['scroll_bg']}; height: 8px; border: none;"
+        f"}}"
+        f"QScrollBar::handle:horizontal {{"
+        f"  background: {t['scroll_handle']}; border-radius: 4px; min-width: 20px;"
+        f"}}"
+        f"QScrollBar::handle:horizontal:hover {{ background: {t['scroll_handle_hover']}; }}"
+        f"QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{ width: 0; }}"
+    )
+
+
+# Attach as a method so _apply_theme_to_all can call self._global_stylesheet()
+LexicalAnalyzerWindow._global_stylesheet = lambda self: _build_global_stylesheet(self._tm.t)
+
+
 # ── Entry point ────────────────────────────────────────────────────────────────
 def run_gui():
     app = QApplication.instance() or QApplication(sys.argv)
 
-    apply_stylesheet(app, theme="dark_teal.xml", extra={
+    # Load persisted theme before building the window
+    tm = ThemeManager.instance()
+    t  = tm.t
+
+    apply_stylesheet(app, theme=t["qt_material"], extra={
         "density_scale": "0",
         "font_family":   "Roboto",
     })
-
-    app.setStyleSheet(app.styleSheet() + """
-        QMainWindow, QWidget { background-color: #0d1117; }
-        QToolTip {
-            background: #161b22; color: #e6edf3;
-            border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px;
-        }
-        QMessageBox { background: #161b22; }
-        QMessageBox QLabel { color: #e6edf3; }
-        QScrollBar:vertical {
-            background: #161b22; width: 8px; border: none;
-        }
-        QScrollBar::handle:vertical {
-            background: #30363d; border-radius: 4px; min-height: 20px;
-        }
-        QScrollBar::handle:vertical:hover { background: #4a5568; }
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
-        QScrollBar:horizontal {
-            background: #161b22; height: 8px; border: none;
-        }
-        QScrollBar::handle:horizontal {
-            background: #30363d; border-radius: 4px; min-width: 20px;
-        }
-        QScrollBar::handle:horizontal:hover { background: #4a5568; }
-        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
-    """)
+    app.setStyleSheet(app.styleSheet() + _build_global_stylesheet(t))
 
     window = LexicalAnalyzerWindow()
     window.show()
