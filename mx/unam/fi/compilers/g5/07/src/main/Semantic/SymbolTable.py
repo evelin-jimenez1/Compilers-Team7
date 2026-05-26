@@ -20,12 +20,12 @@ a stack-based scoping mechanism.
 class Symbol:
     """Represents a single entry in the symbol table."""
     def __init__(self, name, symbol_type, line, is_function=False):
-        self.name = name
-        self.type = symbol_type
-        self.line = line
-        self.is_func = is_function
+        self.name        = name
+        self.type        = symbol_type
+        self.line        = line
+        self.is_func     = is_function
         self.initialized = False
-        self.params = []
+        self.params      = []
 
     def __repr__(self):
         cat = "FUNC" if self.is_func else "VAR"
@@ -48,15 +48,19 @@ class SymbolTable:
             self.scopes.pop()
 
     def declare(self, name, symbol_type, line, is_func=False):
-        """Declare a new symbol in current scope, detecting redeclarations."""
+        """Declare a new symbol in the current scope, detecting redeclarations."""
         current_scope = self.scopes[-1]
 
         if name in current_scope:
-            self.errors.append(f"[Line {line}] Semantic Error: '{name}' already defined in this scope.")
+            self.errors.append(
+                f"Semantic Error: '{name}' is already defined in this scope (line {line})."
+            )
             return False
 
         if symbol_type == "void" and not is_func:
-            self.errors.append(f"[Line {line}] Semantic Error: Variable '{name}' cannot be of type void.")
+            self.errors.append(
+                f"Semantic Error: Variable '{name}' cannot be declared as type 'void' (line {line})."
+            )
             return False
 
         new_symbol = Symbol(name, symbol_type, line, is_func)
@@ -64,14 +68,14 @@ class SymbolTable:
         return True
 
     def lookup(self, name):
-        """Lookup symbol across all scopes, from current back to global."""
+        """Look up a symbol across all scopes, from current back to global."""
         for scope in reversed(self.scopes):
             if name in scope:
                 return scope[name]
         return None
 
     def mark_as_initialized(self, name):
-        """Mark variable as initialized."""
+        """Mark a variable as initialized."""
         symbol = self.lookup(name)
         if symbol:
             symbol.initialized = True

@@ -13,7 +13,6 @@ and initialization status using the Symbol Table.
 import sys
 import os
 
-# Permite encontrar el módulo de la Tabla de Símbolos si están en carpetas separadas
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from SymbolTable import SymbolTable
@@ -24,81 +23,173 @@ class SemanticAnalyzer:
         self.errors = []
 
     def analyze(self, node):
-        """Punto de entrada para iniciar el recorrido de traducción dirigida por sintaxis (SDT)."""
-        self.errors = []  # Limpiar errores de ejecuciones previas
+        """Entry point to start the SDT traversal."""
+        self.errors = []
+        self.table = SymbolTable()   # full reset between compilations
         self.visit(node)
-        # Combinamos los errores acumulados del analizador y de la tabla de símbolos
         return self.errors + self.table.errors
 
     def visit(self, node):
-        """Despachador dinámico (Patrón Visitor) según el tipo de nodo de la gramática."""
+        """Dynamic dispatcher (Visitor Pattern)."""
         if node is None:
             return
-        
         method_name = f'visit_{node.node_type}'
         visitor = getattr(self, method_name, self.generic_visit)
         return visitor(node)
 
-    # --- REGLAS SEMÁNTICAS MAPEADAS A TU GRAMÁTICA REAL ---
+    # ─────────────────────────────────────────────────────────────────────────
+    # GLOBAL: registers functions and global variables
+    # GLOBAL → TYPE id GLOBAL_REST
+    # ─────────────────────────────────────────────────────────────────────────
+    def visit_GLOBAL(self, node):
+        if len(node.children) < 3:
+            return self.generic_visit(node)
 
+        type_node   = node.children[0]   # TYPE
+        id_node     = node.children[1]   # id
+        global_rest = node.children[2]   # GLOBAL_REST
+
+        var_type = type_node.children[0].node_type if type_node.children else "void"
+        var_name = id_node.value
+
+        # Decide if it's a function or global variable based on GLOBAL_REST
+        # GLOBAL_REST → ( PARAMS ) { STMT_LIST }   → function
+        # GLOBAL_REST → OPT_ASSIGN ;               → global variable
+        is_func = (
+            global_rest.children and
+            global_rest.children[0].node_type == '('
+        )
+
+        self.table.declare(var_name, var_type, line=0, is_func=is_func)
+
+        if is_func:
+            # Functions are always considered initialized (they have a body)
+            self.table.mark_as_initialized(var_name)
+            # Enter function scope to register parameters and body
+            self.table.enter_scope()
+            self.generic_visit(node)
+            self.table.exit_scope()
+        else:
+            # Global variable: mark as initialized if it has an assignment
+            opt_assign = global_rest.children[0] if global_rest.children else None
+            if opt_assign and opt_assign.children and opt_assign.children[0].node_type == '=':
+                self.table.mark_as_initialized(var_name)
+            self.generic_visit(node)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PARAMS: first function parameter
+    # PARAMS → TYPE id PARAMS_REST  |  epsilon
+    # ─────────────────────────────────────────────────────────────────────────
+    def visit_PARAMS(self, node):
+        if not node.children:
+            return  # epsilon
+
+        type_node = None
+        id_node   = None
+        for child in node.children:
+            if hasattr(child, 'node_type'):
+                if child.node_type == 'TYPE':
+                    type_node = child
+                elif child.node_type == 'id':
+                    id_node = child
+
+        if type_node and id_node:
+            var_type = type_node.children[0].node_type if type_node.children else "int"
+            var_name = id_node.value
+            success  = self.table.declare(var_name, var_type, line=0)
+            if success:
+                self.table.mark_as_initialized(var_name)
+
+        self.generic_visit(node)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PARAMS_REST: additional comma-separated parameters
+    # PARAMS_REST → , TYPE id PARAMS_REST  |  epsilon
+    # ─────────────────────────────────────────────────────────────────────────
+    def visit_PARAMS_REST(self, node):
+        if not node.children:
+            return  # epsilon
+
+        type_node = None
+        id_node   = None
+        for child in node.children:
+            if hasattr(child, 'node_type'):
+                if child.node_type == 'TYPE':
+                    type_node = child
+                elif child.node_type == 'id':
+                    id_node = child
+
+        if type_node and id_node:
+            var_type = type_node.children[0].node_type if type_node.children else "int"
+            var_name = id_node.value
+            success  = self.table.declare(var_name, var_type, line=0)
+            if success:
+                self.table.mark_as_initialized(var_name)
+
+        self.generic_visit(node)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # STMT: declarations and assignments inside blocks
+    # ─────────────────────────────────────────────────────────────────────────
     def visit_STMT(self, node):
-        """Regla Semántica para Enunciados (Declaraciones y Asignaciones)."""
         if not node.children:
             return self.generic_visit(node)
 
         first_child = node.children[0]
 
-        # Caso A: Declaración de Variable -> STMT : [TYPE, id, OPT_ASSIGN, ;]
+        # Case A: Declaration → TYPE id OPT_ASSIGN ;
         if first_child.node_type == 'TYPE':
-            type_node = first_child
-            id_node = node.children[1]
+            type_node       = first_child
+            id_node         = node.children[1]
             opt_assign_node = node.children[2]
 
-            # Extraemos el tipo de dato real (int, float, char, etc.) desde el hijo de TYPE
             var_type = type_node.children[0].node_type if type_node.children else "void"
             var_name = id_node.value
 
-            # Acción Semántica: Registrar en la Tabla de Símbolos
             success = self.table.declare(var_name, var_type, line=0)
 
-            # Si se declara con éxito y tiene inicialización inmediata (OPT_ASSIGN -> = E)
             if success and opt_assign_node.children and opt_assign_node.children[0].node_type == '=':
                 self.table.mark_as_initialized(var_name)
 
-        # Caso B: Asignación o llamada -> STMT : [id, STMT_ID_REST]
+        # Case B: Assignment or function call → id STMT_ID_REST
         elif first_child.node_type == 'id':
-            var_name = first_child.value
+            var_name     = first_child.value
             stmt_id_rest = node.children[1]
 
-            # Acción Semántica: Verificar existencia previa (Uso antes de declaración)
             symbol = self.table.lookup(var_name)
             if not symbol:
-                self.errors.append(f"Error Semántico: La variable '{var_name}' no ha sido declarada.")
+                self.errors.append(
+                    f"Semantic Error: '{var_name}' has not been declared."
+                )
             else:
-                # Si el resto del ID es una asignación directa (STMT_ID_REST -> = E ;)
                 if stmt_id_rest.children and stmt_id_rest.children[0].node_type == '=':
                     self.table.mark_as_initialized(var_name)
 
-        # Continuar el recorrido por el resto de los subárboles de la instrucción
         self.generic_visit(node)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # PRIMARY: variable usage inside expressions
+    # ─────────────────────────────────────────────────────────────────────────
     def visit_PRIMARY(self, node):
-        """Regla Semántica para expresiones primarias (Detección de lectura de variables)."""
         if node.children and node.children[0].node_type == 'id':
             var_name = node.children[0].value
 
-            # Acción Semántica: Verificar que la variable que se va a leer exista y esté inicializada
             symbol = self.table.lookup(var_name)
             if not symbol:
-                self.errors.append(f"Error Semántico: Variable '{var_name}' utilizada en expresión no está declarada.")
+                self.errors.append(
+                    f"Semantic Error: '{var_name}' is used in an expression but has not been declared."
+                )
             elif not symbol.initialized:
-                self.errors.append(f"Error Semántico: Variable '{var_name}' detectada en expresión antes de ser inicializada.")
+                self.errors.append(
+                    f"Semantic Error: '{var_name}' is used before being initialized."
+                )
 
         self.generic_visit(node)
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # Generic fallback
+    # ─────────────────────────────────────────────────────────────────────────
     def generic_visit(self, node):
-        """Recorrido recursivo estándar por todos los hijos del nodo actual."""
         for child in node.children:
-            # Nos aseguramos de visitar solo nodos válidos del AST
             if hasattr(child, 'children'):
                 self.visit(child)
